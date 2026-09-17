@@ -7,6 +7,7 @@ export interface ActivityEvent {
   topic: string;
   payload: string;
   at: string;
+  atSeconds: number;
 }
 
 export interface Resource {

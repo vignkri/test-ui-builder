@@ -1,0 +1,69 @@
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.breadcrumb {
+  display: flex;
+  gap: var(--space-1);
+  font-size: var(--text-2);
+}
+
+.breadcrumb-link {
+  color: var(--green-11);
+}
+
+.breadcrumb-current {
+  color: var(--color-text-low);
+}
+
+.breadcrumb-sep {
+  color: var(--slate-8);
+  margin: 0 var(--space-1);
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.page-title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-8);
+  line-height: var(--leading-8);
+  letter-spacing: var(--tracking-8);
+  font-weight: var(--weight-8);
+}
+
+.btn {
+  height: 40px;
+  padding: 0 var(--space-4);
+  font-size: var(--text-2);
+  font-weight: 500;
+  border-radius: var(--radius-default);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--green-9);
+  color: var(--green-11);
+}
+
+.btn-outline:hover {
+  background: var(--green-2);
+}
+
+.btn-primary {
+  background: var(--green-9);
+  border: none;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--green-10);
+}

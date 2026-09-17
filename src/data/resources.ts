@@ -35,24 +35,32 @@ function weightedStatus(): ResourceStatus {
   return "ok";
 }
 
+function formatAgo(seconds: number): string {
+  if (seconds < 1) return "now";
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  return `${Math.round(seconds / 60)}m`;
+}
+
 function makeActivity(id: string, type: ResourceType): Resource["activity"] {
   const topics =
     type === "ev-charger"
-      ? ["DK1/acme-flex/v1/activation", "DK1/acme-flex/v1/session/stop", "DK1/acme-flex/v1/meter"]
-      : ["DK1/heat-flex/v1/setpoint", "DK1/heat-flex/v1/defrost", "DK1/heat-flex/v1/meter"];
+      ? ["v1/power", "v1/activation", "v1/acknowledgement", "v1/register"]
+      : ["v1/measurement", "v1/activation", "v1/event"];
   const count = 2 + Math.floor(rand() * 3);
+  let cursorSeconds = rand() * 20;
   return Array.from({ length: count }, (_, i) => {
     const topic = pick(topics);
     const payload =
       type === "ev-charger"
         ? `SetPowerLimit ${(4 + rand() * 7).toFixed(1)} kW`
         : `SetTargetTemp ${(18 + rand() * 4).toFixed(1)} °C`;
-    const minutesAgo = (i + 1) * (3 + Math.floor(rand() * 20));
+    cursorSeconds += 2 + rand() * 90;
     return {
       id: `${id}-evt-${i}`,
       topic,
       payload,
-      at: `${minutesAgo}m ago`,
+      at: `${formatAgo(cursorSeconds)} ago`,
+      atSeconds: cursorSeconds,
     };
   });
 }
@@ -86,6 +94,34 @@ function makeResource(index: number): Resource {
 }
 
 export const RESOURCES: Resource[] = Array.from({ length: 128 }, (_, i) => makeResource(i));
+
+export const MAP_BOUNDS = { minLat: 55.6, maxLat: 56.2, minLng: 12.4, maxLng: 13.2 };
+
+export interface FeedEntry {
+  id: string;
+  resourceId: string;
+  resourceType: ResourceType;
+  status: ResourceStatus;
+  topic: string;
+  payload: string;
+  at: string;
+  atSeconds: number;
+}
+
+export const EVENT_FEED: FeedEntry[] = RESOURCES.flatMap((r) =>
+  r.activity.map((e) => ({
+    id: e.id,
+    resourceId: r.id,
+    resourceType: r.type,
+    status: r.status,
+    topic: e.topic,
+    payload: e.payload,
+    at: e.at,
+    atSeconds: e.atSeconds,
+  }))
+)
+  .sort((a, b) => a.atSeconds - b.atSeconds)
+  .slice(0, 40);
 
 export const STATUS_LABEL: Record<ResourceStatus, string> = {
   ok: "OK",

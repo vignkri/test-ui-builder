@@ -1,13 +1,13 @@
 import "./SideNav.css";
 
-export type Section = "map" | "ev-charger" | "heat-pump" | "faults" | "registration";
+export type Section = "all" | "ev-charger" | "heat-pump" | "faults" | "map";
 
 const NAV_ITEMS: { id: Section; label: string }[] = [
-  { id: "map", label: "All resources" },
+  { id: "all", label: "All resources" },
   { id: "ev-charger", label: "EV chargers" },
   { id: "heat-pump", label: "Heat pumps" },
   { id: "faults", label: "Faults" },
-  { id: "registration", label: "Registration" },
+  { id: "map", label: "Map" },
 ];
 
 interface Props {

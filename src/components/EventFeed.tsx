@@ -6,7 +6,7 @@ export function EventFeed() {
     <div className="event-feed">
       <div className="event-feed-head">
         <p className="event-feed-title">Event feed</p>
-        <span className="event-feed-tag">MQTT live</span>
+        <span className="event-feed-tag">live</span>
       </div>
       <div className="event-feed-list">
         {EVENT_FEED.map((event) => (

@@ -4,45 +4,47 @@ import "./KpiRow.css";
 export function KpiRow({ resources }: { resources: Resource[] }) {
   const evCount = resources.filter((r) => r.type === "ev-charger").length;
   const hpCount = resources.filter((r) => r.type === "heat-pump").length;
-  const online = resources.filter((r) => r.status !== "offline").length;
+  const online = resources.filter((r) => r.state !== "Offline").length;
   const offline = resources.length - online;
-  const needsAttention = resources.filter((r) => r.status === "needs-attention").length;
-  const fault = resources.filter((r) => r.status === "fault").length;
+  const withActivation = resources.filter((r) => r.activation);
+  const powerLimits = withActivation.filter((r) => r.type === "ev-charger").length;
+  const directional = withActivation.length - powerLimits;
+  const unacknowledged = resources.filter((r) => r.ack === "Pending").length;
 
   const items = [
     {
-      label: "Registered resources",
+      label: "Registered",
       value: resources.length.toLocaleString(),
-      helper: `${evCount} EV chargers · ${hpCount} heat pumps`,
-      tone: "neutral" as const,
+      helper: `${evCount} chargers · ${hpCount} heat pumps`,
+      tone: "neutral",
     },
     {
       label: "Online",
       value: online.toLocaleString(),
       helper: `${offline} offline in last 15 min`,
-      tone: "green" as const,
+      tone: "green",
     },
     {
-      label: "Needs attention",
-      value: needsAttention.toLocaleString(),
-      helper: "power limits · activations pending",
-      tone: "blue" as const,
+      label: "Active activations",
+      value: withActivation.length.toLocaleString(),
+      helper: `${powerLimits} power limits · ${directional} directional`,
+      tone: "blue",
     },
     {
-      label: "Fault",
-      value: fault.toLocaleString(),
-      helper: "exceeds acknowledgement target",
-      tone: "red" as const,
+      label: "Unacknowledged",
+      value: unacknowledged.toLocaleString(),
+      helper: "Exceeds 2 s ack target",
+      tone: "red",
     },
   ];
 
   return (
     <div className="kpi-row">
       {items.map((item) => (
-        <div className={`kpi-card kpi-card-${item.tone}`} key={item.label}>
+        <div className="kpi-card" key={item.label}>
           <p className="kpi-label">{item.label}</p>
           <p className="kpi-value">{item.value}</p>
-          <p className="kpi-helper">{item.helper}</p>
+          <p className={`kpi-helper kpi-helper-${item.tone}`}>{item.helper}</p>
         </div>
       ))}
     </div>

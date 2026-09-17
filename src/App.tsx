@@ -10,22 +10,16 @@ import { ResourceTable } from "./components/ResourceTable";
 import { ResourceDetail } from "./components/ResourceDetail";
 import "./App.css";
 
-const SECTION_META: Record<Section, { crumbs: string[]; title: string }> = {
-  map: { crumbs: ["Fleet", "acme-flex", "Map"], title: "Live fleet map" },
-  "ev-charger": {
-    crumbs: ["Fleet", "acme-flex", "EV chargers"],
-    title: "Distributed energy resources",
-  },
-  "heat-pump": {
-    crumbs: ["Fleet", "acme-flex", "Heat pumps"],
-    title: "Distributed energy resources",
-  },
-  faults: { crumbs: ["Fleet", "acme-flex", "Faults"], title: "Faults" },
-  registration: { crumbs: ["Fleet", "acme-flex", "Registration"], title: "Registration" },
+const SECTION_TITLE: Record<Section, string> = {
+  all: "Distributed energy resources",
+  "ev-charger": "Distributed energy resources",
+  "heat-pump": "Distributed energy resources",
+  faults: "Faults",
+  map: "Live fleet map",
 };
 
 function App() {
-  const [section, setSection] = useState<Section>("map");
+  const [section, setSection] = useState<Section>("ev-charger");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(RESOURCES[0]?.id ?? null);
 
@@ -45,13 +39,15 @@ function App() {
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return sectionResources;
-    return sectionResources.filter(
-      (r) => r.id.toLowerCase().includes(query) || r.site.toLowerCase().includes(query)
-    );
+    return sectionResources.filter((r) => r.id.toLowerCase().includes(query));
   }, [sectionResources, search]);
 
   const selected = RESOURCES.find((r) => r.id === selectedId) ?? null;
-  const meta = SECTION_META[section];
+  const zones = new Set(RESOURCES.map((r) => r.zone));
+  const subtitle =
+    section === "map"
+      ? `Markers pulse on every MQTT message · ${RESOURCES.length} shown`
+      : `${sectionResources.length} resources across ${[...zones].sort().join(" and ")} · updated 4s ago`;
 
   return (
     <div className="app-shell">
@@ -59,32 +55,27 @@ function App() {
       <div className="app-body">
         <SideNav active={section} onSelect={setSection} />
         <main className="app-main">
-          <PageHeader crumbs={meta.crumbs} title={meta.title} />
+          <PageHeader title={SECTION_TITLE[section]} subtitle={subtitle} />
           <KpiRow resources={RESOURCES} />
-          {section === "map" ? (
-            <div className="app-content">
-              <MapView resources={RESOURCES} selectedId={selectedId} onSelect={setSelectedId} />
-              <EventFeed />
-            </div>
-          ) : (
-            <div className="app-content">
-              <div className="table-column">
-                <input
-                  className="search-input"
-                  type="search"
-                  placeholder="Search by ID or site"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+          <div className="app-content">
+            {section === "map" ? (
+              <>
+                <MapView resources={RESOURCES} selectedId={selectedId} onSelect={setSelectedId} />
+                <EventFeed />
+              </>
+            ) : (
+              <>
                 <ResourceTable
                   resources={filtered}
                   selectedId={selectedId}
                   onSelect={setSelectedId}
+                  search={search}
+                  onSearchChange={setSearch}
                 />
-              </div>
-              <ResourceDetail resource={selected} />
-            </div>
-          )}
+                <ResourceDetail resource={selected} />
+              </>
+            )}
+          </div>
         </main>
       </div>
     </div>

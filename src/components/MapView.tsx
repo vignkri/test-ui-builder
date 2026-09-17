@@ -29,7 +29,7 @@ export function MapView({ resources, selectedId, onSelect }: Props) {
             r.status === "needs-attention" || r.status === "fault" ? "map-marker-updated" : ""
           } ${r.id === selectedId ? "map-marker-selected" : ""}`}
           style={markerPosition(r)}
-          title={`${r.id} · ${r.site}`}
+          title={`${r.id} · ${r.zone} · ${r.state}`}
           onClick={() => onSelect(r.id)}
         >
           <span className="map-marker-dot" />
@@ -45,8 +45,8 @@ export function MapView({ resources, selectedId, onSelect }: Props) {
           Heat pump
         </div>
         <div className="map-legend-item">
-          <span className="map-legend-dot map-legend-dot-alert map-legend-pulse" />
-          Needs attention
+          <span className="map-legend-dot map-legend-dot-ev map-legend-pulse" />
+          Updated &lt;1s ago
         </div>
       </div>
     </div>

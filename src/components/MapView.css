@@ -57,13 +57,25 @@
   background: var(--blue-9);
 }
 
+.map-marker-health-offline .map-marker-dot {
+  background: var(--slate-8);
+}
+
+.map-marker-health-fault .map-marker-dot {
+  background: var(--red-9);
+}
+
+.map-marker-health-needs-attention .map-marker-dot {
+  box-shadow: 0 0 0 2px var(--amber-8);
+}
+
 .map-marker-selected .map-marker-dot {
   box-shadow: 0 0 0 3px var(--slate-12);
 }
 
 .map-marker-updated {
   border-radius: var(--radius-full);
-  animation: marker-pulse 1.8s ease-out infinite;
+  animation: marker-pulse 0.8s ease-out 1;
 }
 
 .map-marker-heat-pump.map-marker-updated {

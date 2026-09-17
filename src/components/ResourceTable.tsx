@@ -1,28 +1,15 @@
-import type { AckStatus, Resource, ResourceState } from "../types";
-import { TYPE_LABEL } from "../data/resources";
+import type { Resource } from "../types";
+import {
+  TYPE_LABEL,
+  ackTone,
+  displayAck,
+  displayActivation,
+  displayState,
+  displayTelemetry,
+  stateTone,
+} from "../mqtt/derive";
 import { Badge } from "./Badge";
 import "./ResourceTable.css";
-
-const STATE_TONE: Record<ResourceState, string> = {
-  Charging: "text-green",
-  Available: "text-low",
-  ActivatedUp: "text-blue",
-  ActivatedDown: "text-blue",
-  Offline: "text-red",
-};
-
-function ackClass(ack: AckStatus): string {
-  switch (ack) {
-    case "Accepted":
-      return "text-green";
-    case "Pending":
-      return "text-amber";
-    case "EvseOffline":
-      return "text-red";
-    default:
-      return "text-muted";
-  }
-}
 
 interface Props {
   resources: Resource[];
@@ -66,14 +53,21 @@ export function ResourceTable({ resources, selectedId, onSelect, search, onSearc
                 key={r.id}
                 className={r.id === selectedId ? "row-selected" : ""}
                 onClick={() => onSelect(r.id)}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelect(r.id);
+                  }
+                }}
               >
                 <td className="cell-id">{r.id}</td>
                 <td className="text-low">{TYPE_LABEL[r.type]}</td>
                 <td className="text-low">{r.zone}</td>
-                <td className={STATE_TONE[r.state]}>{r.state}</td>
-                <td>{r.activation ?? "—"}</td>
-                <td>{r.telemetry}</td>
-                <td className={ackClass(r.ack)}>{r.ack ?? "—"}</td>
+                <td className={`text-${stateTone(r)}`}>{displayState(r)}</td>
+                <td>{displayActivation(r)}</td>
+                <td>{displayTelemetry(r)}</td>
+                <td className={`text-${ackTone(r)}`}>{displayAck(r)}</td>
               </tr>
             ))}
             {resources.length === 0 && (

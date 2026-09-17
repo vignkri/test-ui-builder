@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { RESOURCES } from "./data/resources";
 import { TopHeader } from "./components/TopHeader";
 import { SideNav, type Section } from "./components/SideNav";
 import { PageHeader } from "./components/PageHeader";
@@ -8,6 +7,8 @@ import { MapView } from "./components/MapView";
 import { EventFeed } from "./components/EventFeed";
 import { ResourceTable } from "./components/ResourceTable";
 import { ResourceDetail } from "./components/ResourceDetail";
+import { formatAgo, healthOf } from "./mqtt/derive";
+import { useConnectionStatus, useFleet, useNow } from "./mqtt/useFleet";
 import "./App.css";
 
 const SECTION_TITLE: Record<Section, string> = {
@@ -18,23 +19,37 @@ const SECTION_TITLE: Record<Section, string> = {
   map: "Live fleet map",
 };
 
+const OFFLINE_COPY: Record<Exclude<ConnectionKind, "live">, string> = {
+  connecting: "Connecting to the broker",
+  reconnecting: "Connection to the broker was lost — retrying",
+  disconnected: "Not connected to the broker",
+};
+type ConnectionKind = ReturnType<typeof useConnectionStatus>["kind"];
+
 function App() {
+  const { resources, feed, lastMessageAt } = useFleet();
+  const status = useConnectionStatus();
+  const live = status.kind === "live";
+  const now = useNow(1000);
   const [section, setSection] = useState<Section>("ev-charger");
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(RESOURCES[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const sectionResources = useMemo(() => {
     switch (section) {
       case "ev-charger":
-        return RESOURCES.filter((r) => r.type === "ev-charger");
+        return resources.filter((r) => r.type === "ev-charger");
       case "heat-pump":
-        return RESOURCES.filter((r) => r.type === "heat-pump");
+        return resources.filter((r) => r.type === "heat-pump");
       case "faults":
-        return RESOURCES.filter((r) => r.status === "fault" || r.status === "needs-attention");
+        return resources.filter((r) => {
+          const h = healthOf(r, now);
+          return h === "fault" || h === "needs-attention";
+        });
       default:
-        return RESOURCES;
+        return resources;
     }
-  }, [section]);
+  }, [resources, section, now]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -42,37 +57,54 @@ function App() {
     return sectionResources.filter((r) => r.id.toLowerCase().includes(query));
   }, [sectionResources, search]);
 
-  const selected = RESOURCES.find((r) => r.id === selectedId) ?? null;
-  const zones = new Set(RESOURCES.map((r) => r.zone));
+  // Keep the detail panel on something that is actually in the visible list.
+  const visibleSelectedId =
+    section === "map"
+      ? selectedId
+      : filtered.some((r) => r.id === selectedId)
+        ? selectedId
+        : (filtered[0]?.id ?? null);
+  const selected = resources.find((r) => r.id === visibleSelectedId) ?? null;
+
+  const zones = [...new Set(resources.map((r) => r.zone))].sort().join(" and ");
+  const ago = lastMessageAt ? formatAgo(lastMessageAt, now) : null;
+  const updated = ago === null ? "no messages yet" : ago === "now" ? "updated just now" : `updated ${ago} ago`;
   const subtitle =
     section === "map"
-      ? `Markers pulse on every MQTT message · ${RESOURCES.length} shown`
-      : `${sectionResources.length} resources across ${[...zones].sort().join(" and ")} · updated 4s ago`;
+      ? `Markers pulse on every MQTT message · ${resources.length} shown`
+      : `${sectionResources.length} resources${zones ? ` across ${zones}` : ""} · ${updated}`;
 
   return (
-    <div className="app-shell">
-      <TopHeader />
+    <div className={`app-shell ${live ? "" : "app-offline"}`}>
+      <TopHeader status={status} />
+      {!live && (
+        <div className="offline-banner" role="status">
+          <span className="offline-banner-title">{OFFLINE_COPY[status.kind]}</span>
+          <span className="offline-banner-detail">{status.detail}</span>
+          {resources.length > 0 && <span className="offline-banner-detail">Showing last known state.</span>}
+        </div>
+      )}
       <div className="app-body">
         <SideNav active={section} onSelect={setSection} />
         <main className="app-main">
           <PageHeader title={SECTION_TITLE[section]} subtitle={subtitle} />
-          <KpiRow resources={RESOURCES} />
+          <KpiRow resources={resources} now={now} />
           <div className="app-content">
             {section === "map" ? (
               <>
-                <MapView resources={RESOURCES} selectedId={selectedId} onSelect={setSelectedId} />
-                <EventFeed />
+                <MapView resources={resources} selectedId={selectedId} onSelect={setSelectedId} />
+                <EventFeed feed={feed} now={now} live={live} />
               </>
             ) : (
               <>
                 <ResourceTable
                   resources={filtered}
-                  selectedId={selectedId}
+                  selectedId={visibleSelectedId}
                   onSelect={setSelectedId}
                   search={search}
                   onSearchChange={setSearch}
                 />
-                <ResourceDetail resource={selected} />
+                <ResourceDetail resource={selected} feed={feed} now={now} live={live} />
               </>
             )}
           </div>

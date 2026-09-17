@@ -40,9 +40,22 @@
   font-weight: 500;
 }
 
+.event-feed-tag-off {
+  background: var(--slate-3);
+  color: var(--slate-11);
+}
+
 .event-feed-list {
   flex: 1;
   overflow-y: auto;
+}
+
+.event-feed-empty {
+  margin: 0;
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  font-size: var(--text-2);
+  color: var(--color-text-low);
 }
 
 .event-feed-row {

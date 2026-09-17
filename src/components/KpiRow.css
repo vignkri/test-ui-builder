@@ -49,6 +49,10 @@
   color: var(--blue-11);
 }
 
+.kpi-helper-amber {
+  color: var(--amber-11);
+}
+
 .kpi-helper-red {
   color: var(--red-11);
 }

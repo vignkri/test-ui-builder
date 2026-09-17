@@ -224,11 +224,27 @@
   gap: 3px;
 }
 
+.sparkline-empty {
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-1);
+  color: var(--color-text-low);
+}
+
 .sparkline-bar {
   flex: 1;
   min-width: 1px;
   background: var(--green-5);
   border-radius: 2px;
+  transition: height 200ms ease-out;
+}
+
+.text-blue {
+  color: var(--blue-11);
+}
+
+.text-low {
+  color: var(--color-text-low);
 }
 
 .sparkline-bar-hot {

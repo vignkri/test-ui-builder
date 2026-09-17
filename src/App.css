@@ -11,6 +11,40 @@
   min-height: 0;
 }
 
+/* Not connected: keep the last known state readable but unmistakably stale. */
+.app-offline .app-main {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.app-offline .app-main .btn,
+.app-offline .app-main .text-field-input {
+  pointer-events: none;
+}
+
+.offline-banner {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-5);
+  background: var(--red-3);
+  border-bottom: 1px solid var(--red-6);
+  color: var(--red-11);
+  font-size: var(--text-2);
+  line-height: var(--leading-2);
+  flex-shrink: 0;
+}
+
+.offline-banner-title {
+  font-weight: 500;
+}
+
+.offline-banner-detail {
+  color: var(--red-11);
+  opacity: 0.8;
+  font-size: var(--text-1);
+}
+
 .app-main {
   flex: 1;
   min-width: 0;

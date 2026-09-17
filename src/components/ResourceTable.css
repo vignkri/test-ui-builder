@@ -88,6 +88,11 @@
   background: var(--slate-2);
 }
 
+.resource-table tbody tr:focus-visible {
+  outline: 2px solid var(--green-8);
+  outline-offset: -2px;
+}
+
 .resource-table tbody tr.row-selected,
 .resource-table tbody tr.row-selected:hover {
   background: var(--green-2);

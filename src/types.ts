@@ -1,46 +1,78 @@
+import type {
+  Acceptance,
+  EvActivation,
+  EvCapability,
+  EvSchedule,
+  EvStatus,
+  HpActivation,
+  HpStatus,
+} from "./mqtt/messages";
+import type { Channel, Zone } from "./mqtt/topics";
+
 export type ResourceType = "ev-charger" | "heat-pump";
 
-export type ResourceStatus = "ok" | "needs-attention" | "fault" | "offline";
+/** Coarse health bucket derived from live state; drives map/feed colours and the Faults view. */
+export type Health = "ok" | "needs-attention" | "fault" | "offline";
 
-export type Zone = "DK1" | "DK2";
+export interface ActiveActivation {
+  kind: EvActivation | HpActivation;
+  powerLimitKw: number | null;
+  endsAt: number | null;
+  sentAt: number;
+  eventId: string | null;
+}
 
-export type ResourceState =
-  | "Charging"
-  | "Available"
-  | "ActivatedUp"
-  | "ActivatedDown"
-  | "Offline";
-
-export type AckStatus = "Accepted" | "Pending" | "EvseOffline" | "n/a" | null;
-
-export interface ActivityEvent {
-  id: string;
-  topic: string;
-  payload: string;
-  at: string;
-  atSeconds: number;
+export interface Acknowledgement {
+  acceptance: Acceptance;
+  roundTripMs: number | null;
+  at: number;
 }
 
 export interface Resource {
   id: string;
   type: ResourceType;
-  status: ResourceStatus;
   zone: Zone;
-  state: ResourceState;
-  activation: string | null;
-  telemetry: string;
-  ack: AckStatus;
-  lat: number;
-  lng: number;
-  powerLimitKw: number;
-  maxPowerKw: number;
-  currentPowerKw: number;
+  customer: string;
+
+  subscriptionStatus: "Subscribed" | "Unsubscribed";
+  capability: EvCapability[];
+  currentType: "AC" | "DC" | null;
+  schedule: EvSchedule | null;
+  brpCode: string | null;
+  compressorRatedPowerKW: number | null;
+  backupHeaterRatedPowerKW: number | null;
+
+  status: EvStatus | HpStatus | null;
+  powerKw: number | null;
   powerHistoryKw: number[];
-  endsAt: string;
-  roundTripMs: number;
-  capability: string;
-  currentType: string;
-  subscriptionStatus: string;
-  schedule: string;
-  activity: ActivityEvent[];
+  availableUpKw: number | null;
+  availableDownKw: number | null;
+
+  activation: ActiveActivation | null;
+  acknowledgement: Acknowledgement | null;
+  /** EV only: an activation was delivered and no acknowledgement has followed it yet. */
+  ackPending: boolean;
+
+  registeredAt: number;
+  lastMessageAt: number;
+  /** Normalised 0..1 map coordinates. The spec carries no geo data, so this is a stable hash of the id. */
+  mapPosition: { x: number; y: number };
 }
+
+export interface FeedEntry {
+  id: string;
+  resourceId: string;
+  resourceType: ResourceType;
+  channel: Channel;
+  summary: string;
+  at: number;
+  health: Health;
+}
+
+export type ConnectionStatus =
+  | { kind: "connecting"; detail: string }
+  | { kind: "live"; detail: string }
+  /** Was live, lost the socket; mqtt.js is retrying. */
+  | { kind: "reconnecting"; detail: string }
+  /** Never reached the broker (unreachable or not configured). */
+  | { kind: "disconnected"; detail: string };

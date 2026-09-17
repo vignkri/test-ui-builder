@@ -39,12 +39,30 @@
   height: 20px;
   padding: 0 var(--space-2);
   border-radius: var(--radius-full);
-  background: var(--green-3);
-  color: var(--green-11);
   font-size: var(--text-1);
   line-height: var(--leading-1);
   letter-spacing: var(--tracking-1);
   font-weight: 500;
+}
+
+.env-badge-green {
+  background: var(--green-3);
+  color: var(--green-11);
+}
+
+.env-badge-amber {
+  background: var(--amber-3);
+  color: var(--amber-11);
+}
+
+.env-badge-red {
+  background: var(--red-3);
+  color: var(--red-11);
+}
+
+.env-badge-slate {
+  background: var(--slate-3);
+  color: var(--slate-11);
 }
 
 .org-name {

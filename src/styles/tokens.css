@@ -1,0 +1,149 @@
+/* Weavemancer Design System — tokens
+   Radix Colors 12-step scales (light), 4px space scale, medium radius, Inter. */
+:root {
+  /* slate — neutral UI */
+  --slate-1: #fcfcfd;
+  --slate-2: #f9f9fb;
+  --slate-3: #f0f0f3;
+  --slate-4: #e8e8ec;
+  --slate-5: #e0e1e6;
+  --slate-6: #d9d9e0;
+  --slate-7: #cdced6;
+  --slate-8: #b9bbc6;
+  --slate-9: #8b8d98;
+  --slate-10: #80838d;
+  --slate-11: #60646c;
+  --slate-12: #1c2024;
+
+  /* green — EV charger */
+  --green-1: #fbfefc;
+  --green-2: #f4fbf6;
+  --green-3: #e6f6eb;
+  --green-4: #d6f1df;
+  --green-5: #c4e8d1;
+  --green-6: #adddc0;
+  --green-7: #8eceaa;
+  --green-8: #5bb98b;
+  --green-9: #30a46c;
+  --green-10: #2b9a66;
+  --green-11: #218358;
+  --green-12: #193b2d;
+
+  /* blue — heat pump */
+  --blue-1: #fbfdff;
+  --blue-2: #f4faff;
+  --blue-3: #e6f4fe;
+  --blue-4: #d5efff;
+  --blue-5: #c2e5ff;
+  --blue-6: #acd8fc;
+  --blue-7: #8ec8f6;
+  --blue-8: #5eb1ef;
+  --blue-9: #0090ff;
+  --blue-10: #0588f0;
+  --blue-11: #0d74ce;
+  --blue-12: #113264;
+
+  /* amber — needs attention */
+  --amber-1: #fefdfb;
+  --amber-2: #fefbe9;
+  --amber-3: #fff7c2;
+  --amber-4: #ffee9c;
+  --amber-5: #fbe577;
+  --amber-6: #f3d673;
+  --amber-7: #e9c162;
+  --amber-8: #e2a336;
+  --amber-9: #ffc53d;
+  --amber-10: #ffba18;
+  --amber-11: #ab6400;
+  --amber-12: #4f3422;
+
+  /* red — fault */
+  --red-1: #fffcfc;
+  --red-2: #fff7f7;
+  --red-3: #feebec;
+  --red-4: #ffdbdc;
+  --red-5: #ffcdce;
+  --red-6: #fdbdbe;
+  --red-7: #f4a9aa;
+  --red-8: #eb8e90;
+  --red-9: #e5484d;
+  --red-10: #dc3e42;
+  --red-11: #ce2c31;
+  --red-12: #641723;
+
+  /* semantic roles, mapped from the 12-step scales */
+  --color-app-bg: var(--slate-1);
+  --color-panel-bg: #ffffff;
+  --color-subtle-bg: var(--slate-2);
+  --color-ui-bg: var(--slate-3);
+  --color-ui-bg-hover: var(--slate-4);
+  --color-ui-bg-active: var(--slate-5);
+  --color-border-subtle: var(--slate-6);
+  --color-border: var(--slate-7);
+  --color-border-hover: var(--slate-8);
+  --color-text-low: var(--slate-11);
+  --color-text: var(--slate-12);
+
+  /* type scale — Inter, size / line-height / tracking */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+
+  --text-8: 35px;
+  --leading-8: 40px;
+  --tracking-8: -0.35px;
+  --weight-8: 700;
+
+  --text-6: 24px;
+  --leading-6: 30px;
+  --tracking-6: -0.15px;
+  --weight-6: 500;
+
+  --text-5: 20px;
+  --leading-5: 28px;
+  --tracking-5: -0.1px;
+  --weight-5: 500;
+
+  --text-4: 18px;
+  --leading-4: 26px;
+  --tracking-4: -0.045px;
+  --weight-4: 500;
+
+  --text-3: 16px;
+  --leading-3: 24px;
+  --tracking-3: 0;
+  --weight-3: 400;
+
+  --text-2: 14px;
+  --leading-2: 20px;
+  --tracking-2: 0;
+  --weight-2m: 500;
+  --weight-2r: 400;
+
+  --text-1: 12px;
+  --leading-1: 16px;
+  --tracking-1: 0.03px;
+  --weight-1: 400;
+
+  /* space scale — 4px base */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 48px;
+  --space-9: 64px;
+
+  /* radius scale */
+  --radius-1: 3px;
+  --radius-2: 4px;
+  --radius-3: 6px;
+  --radius-4: 8px;
+  --radius-5: 12px;
+  --radius-6: 16px;
+  --radius-full: 9999px;
+
+  --radius-default: var(--radius-3);
+  --radius-panel: var(--radius-4);
+}

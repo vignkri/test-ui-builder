@@ -11,6 +11,15 @@ import type { Channel, Zone } from "./mqtt/topics";
 
 export type ResourceType = "ev-charger" | "heat-pump";
 
+/** The four DER resource states from the design spec; every tone in the console resolves to one. */
+export type StatusTone = "available" | "activated" | "unavailable" | "faulted";
+
+/** Resource-type codes as the design's TypeBadge names them. */
+export type DerType = "evCharger" | "heatPump" | "bess" | "chp" | "p2x" | "pv" | "misc";
+
+/** Console-side data freshness — not an API field. */
+export type Freshness = "live" | "stale" | "lastKnown";
+
 /** Coarse health bucket derived from live state; drives map/feed colours and the Faults view. */
 export type Health = "ok" | "needs-attention" | "fault" | "offline";
 

@@ -1,0 +1,90 @@
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3-5) var(--spacing-4);
+  border-radius: var(--radius-xl);
+  flex-shrink: 0;
+}
+
+.alert-default {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+}
+
+.alert-destructive {
+  background: var(--status-faulted-muted);
+  color: var(--status-faulted-foreground);
+}
+
+.alert-destructive .alert-icon {
+  color: var(--status-faulted);
+}
+
+.alert-accent {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.alert-secondary {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.alert-icon {
+  display: flex;
+  padding-top: 1px;
+}
+
+.alert-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.alert-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.alert-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.alert-description {
+  margin: 0;
+  color: var(--muted-foreground);
+}
+
+.progress {
+  position: relative;
+  height: 8px;
+  background: var(--muted);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progress-indicator {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  transition: width 200ms ease-out;
+}
+
+.progress-export .progress-indicator {
+  background: var(--chart-1);
+}
+
+.progress-import .progress-indicator {
+  background: var(--chart-2);
+}
+
+.progress-muted .progress-indicator {
+  background: var(--muted-foreground);
+}

@@ -1,83 +1,67 @@
 .resource-table-card {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-panel-bg);
-  border: 1px solid var(--slate-6);
-  border-radius: var(--radius-4);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
   height: 100%;
-}
-
-.resource-table-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  height: 48px;
-  padding: 0 var(--space-4);
-  border-bottom: 1px solid var(--slate-4);
-  flex-shrink: 0;
-}
-
-.resource-table-title {
-  flex: 1;
-  margin: 0;
-  font-size: var(--text-3);
-  line-height: var(--leading-3);
-  font-weight: 500;
+  overflow: hidden;
 }
 
 .resource-search {
-  height: 28px;
-  width: 180px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--slate-7);
-  border-radius: var(--radius-3);
-  background: var(--color-panel-bg);
-  font-size: var(--text-2);
-  color: var(--color-text);
+  width: 220px;
+  max-width: 100%;
 }
 
-.resource-search:focus {
-  outline: 2px solid var(--green-8);
-  outline-offset: -1px;
+/* Activation is the last column: its detail line may wrap rather than clip. */
+.resource-table tbody td:last-child {
+  white-space: normal;
+  min-width: 150px;
 }
 
 .resource-table-scroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: auto;
 }
 
 .resource-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--text-2);
-  line-height: var(--leading-2);
 }
 
 .resource-table thead th {
   position: sticky;
   top: 0;
-  height: 36px;
-  padding: 0 var(--space-4);
+  z-index: 1;
+  padding: var(--spacing-2-5) var(--spacing-3);
   text-align: left;
-  font-size: var(--text-1);
-  letter-spacing: var(--tracking-1);
-  font-weight: 500;
-  color: var(--slate-10);
-  background: var(--slate-2);
-  border-bottom: 1px solid var(--slate-4);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.66px;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.resource-table th:first-child,
+.resource-table td:first-child {
+  padding-left: var(--spacing-6);
 }
 
 .resource-table tbody td {
-  height: 44px;
-  padding: 0 var(--space-4);
-  border-bottom: 1px solid var(--slate-4);
-  color: var(--color-text);
+  padding: var(--spacing-3);
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
   white-space: nowrap;
+}
+
+.resource-table tbody tr:first-child td {
+  border-top: none;
+}
+
+.resource-table tbody td p {
+  margin: 0;
 }
 
 .resource-table tbody tr {
@@ -85,49 +69,74 @@
 }
 
 .resource-table tbody tr:hover {
-  background: var(--slate-2);
+  background: color-mix(in srgb, var(--muted) 60%, transparent);
 }
 
 .resource-table tbody tr:focus-visible {
-  outline: 2px solid var(--green-8);
+  outline: 2px solid var(--ring);
   outline-offset: -2px;
 }
 
 .resource-table tbody tr.row-selected,
 .resource-table tbody tr.row-selected:hover {
-  background: var(--green-2);
+  background: var(--secondary);
 }
 
-.cell-id {
+.resource-table tbody tr.row-selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--ring);
+}
+
+/* Unsubscribed: record retained, row dimmed. Stale: data gap, not a state. */
+.resource-table tbody tr.row-dimmed,
+.resource-table tbody tr.row-stale /* The ack outcome rides on the activation's second line; only failures take colour. */
+.cell-ack-faulted {
+  color: var(--status-faulted-foreground);
+}
+
+.cell-power {
+  opacity: 0.55;
+}
+
+.cell-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 18px;
   font-weight: 500;
+  color: var(--foreground);
 }
 
-.text-low {
-  color: var(--color-text-low);
+.cell-primary {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
 }
 
-.text-muted {
-  color: var(--slate-9);
+.cell-secondary {
+  margin-top: var(--spacing-1) !important;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted-foreground);
 }
 
-.text-green {
-  color: var(--green-11);
+/* The ack outcome rides on the activation's second line; only failures take colour. */
+.cell-ack-faulted {
+  color: var(--status-faulted-foreground);
 }
 
-.text-blue {
-  color: var(--blue-11);
+.cell-power {
+  min-width: 112px;
 }
 
-.text-amber {
-  color: var(--amber-11);
-}
-
-.text-red {
-  color: var(--red-11);
+.cell-power .power-bar {
+  margin-top: var(--spacing-1-5);
 }
 
 .cell-empty {
   text-align: center;
-  padding: var(--space-8) !important;
-  color: var(--color-text-low);
+  padding: var(--spacing-10) !important;
+  font-size: 13px;
+  color: var(--muted-foreground);
 }

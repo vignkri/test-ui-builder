@@ -1,21 +1,35 @@
 import { useState } from "react";
+import { ArrowDown, ArrowUp, Power, Zap } from "lucide-react";
 import type { FeedEntry, Resource } from "../types";
 import {
-  TYPE_LABEL,
+  DER_TYPE,
   ackTone,
   displayAck,
+  feedTone,
   formatAgo,
   formatClock,
+  formatSigned,
   formatUntil,
+  freshnessOf,
   maxPowerKw,
+  signedPowerKw,
   stateTone,
 } from "../mqtt/derive";
 import { sendEvActivation, sendHpActivation } from "../mqtt/fleet";
-import { Badge } from "./Badge";
+import { CommandBadge, FreshnessBadge, StatusBadge, TypeBadge } from "./ui/Badge";
+import { Button } from "./ui/Button";
+import { Card, MetricTile } from "./ui/Card";
+import { KeyValue, TimelineItem } from "./ui/DataDisplay";
+import { Progress } from "./ui/Feedback";
+import { Input, ToggleGroup } from "./ui/Inputs";
 import "./ResourceDetail.css";
 
 type Tab = "Control" | "Telemetry" | "Registration";
-const TABS: Tab[] = ["Control", "Telemetry", "Registration"];
+const TABS = [
+  { value: "Control", label: "Control" },
+  { value: "Telemetry", label: "Telemetry" },
+  { value: "Registration", label: "Registration" },
+] as const;
 
 interface Props {
   resource: Resource | null;
@@ -27,9 +41,9 @@ interface Props {
 export function ResourceDetail({ resource, feed, now, live }: Props) {
   if (!resource) {
     return (
-      <div className="detail-card detail-empty">
+      <Card className="detail-card detail-empty">
         <p>{live ? "Select a resource to see its detail." : "No resources — not connected."}</p>
-      </div>
+      </Card>
     );
   }
   return <ResourceDetailPanel key={resource.id} resource={resource} feed={feed} now={now} live={live} />;
@@ -53,216 +67,189 @@ function ResourceDetailPanel({
   const invalid = Number.isNaN(limit) || limit < 0 || limit > max;
   const canSend = live && !invalid;
 
+  const freshness = freshnessOf(r, live, now);
+  const tileState = freshness === "live" ? "live" : "stale";
+  const state = stateTone(r);
+  const ack = ackTone(r);
+  const power = signedPowerKw(r);
   const endsAt = r.activation?.endsAt ?? null;
   const roundTrip = r.acknowledgement?.roundTripMs ?? null;
   const ownFeed = feed.filter((e) => e.resourceId === r.id);
 
   return (
-    <div className={`detail-card ${isHp ? "accent-blue" : ""}`}>
-      <div className="detail-head">
+    <Card className="detail-card">
+      <header className="detail-head">
         <div className="detail-head-row">
           <p className="detail-id">{r.id}</p>
-          <Badge tone={isHp ? "blue" : "green"}>{TYPE_LABEL[r.type]}</Badge>
+          <FreshnessBadge freshness={freshness} />
         </div>
-        <p className="mono detail-topic">
+        <div className="detail-badges">
+          <TypeBadge type={DER_TYPE[r.type]} />
+          {state && <StatusBadge status={state}>{r.status}</StatusBadge>}
+        </div>
+        <p className="detail-topic">
           {r.zone}/{r.customer}/v1/activation/{r.id}
         </p>
-      </div>
+      </header>
 
       <div className="detail-tabs">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            type="button"
-            className={`detail-tab ${t === tab ? "detail-tab-active" : ""}`}
-            onClick={() => setTab(t)}
-          >
-            {t}
-          </button>
-        ))}
+        <ToggleGroup label="Detail view" value={tab} options={TABS} onChange={setTab} />
       </div>
 
       <div className="detail-body">
-        <div className="status-tiles">
-          <div className="status-tile">
-            <p className="status-tile-label">State</p>
-            <p className={`status-tile-value text-${stateTone(r)}`}>{r.status ?? "—"}</p>
-          </div>
+        <div className="detail-tiles">
           {isHp ? (
-            <div className="status-tile">
-              <p className="status-tile-label">available_kw</p>
-              <p className="status-tile-value">
-                {r.availableUpKw === null ? "—" : `↑${r.availableUpKw.toFixed(1)} ↓${(r.availableDownKw ?? 0).toFixed(1)}`}
-              </p>
-            </div>
+            <>
+              <MetricTile name="availableUpKw" value={r.availableUpKw?.toFixed(1) ?? "—"} unit="kW" state={tileState} />
+              <MetricTile name="availableDownKw" value={r.availableDownKw?.toFixed(1) ?? "—"} unit="kW" state={tileState} />
+            </>
           ) : (
-            <div className="status-tile">
-              <p className="status-tile-label">power_kw</p>
-              <p className="status-tile-value">{r.powerKw === null ? "—" : `${r.powerKw.toFixed(1)} kW`}</p>
-            </div>
+            <>
+              <MetricTile
+                name="power_kw"
+                value={power === null ? "—" : formatSigned(power)}
+                unit="kW"
+                state={tileState}
+              />
+              <MetricTile name="roundTrip" value={roundTrip ?? "—"} unit="ms" state={tileState} />
+            </>
           )}
-          <div className="status-tile">
-            <p className="status-tile-label">acceptance</p>
-            <p className={`status-tile-value text-${ackTone(r)}`}>{displayAck(r)}</p>
-          </div>
         </div>
 
         {tab === "Control" && (
           <>
             <section className="detail-section">
-              <p className="detail-section-label">ACTIVATION · {isHp ? "Direction" : "SetPowerLimit"}</p>
+              <div className="detail-section-head">
+                <p className="detail-overline">Activation · {isHp ? "Direction" : "SetPowerLimit"}</p>
+                {r.activation &&
+                  (r.activation.kind === "Release" || r.activation.kind === "ClearPowerLimit" ? (
+                    <CommandBadge command="Release" />
+                  ) : (
+                    <CommandBadge command="Setpoint" />
+                  ))}
+              </div>
               {isHp ? (
                 <div className="detail-actions">
-                  <button type="button" className="btn btn-tonal" disabled={!live} onClick={() => sendHpActivation(r, "Release")}>
+                  <Button variant="outline" size="default" icon={<Power />} disabled={!live} onClick={() => sendHpActivation(r, "Release")}>
                     Release
-                  </button>
-                  <button type="button" className="btn btn-soft" disabled={!live} onClick={() => sendHpActivation(r, "ActivationDown")}>
+                  </Button>
+                  <Button variant="secondary" size="default" icon={<ArrowDown />} disabled={!live} onClick={() => sendHpActivation(r, "ActivationDown")}>
                     Down
-                  </button>
-                  <button type="button" className="btn btn-solid" disabled={!live} onClick={() => sendHpActivation(r, "ActivationUp")}>
+                  </Button>
+                  <Button size="default" icon={<ArrowUp />} disabled={!live} onClick={() => sendHpActivation(r, "ActivationUp")}>
                     Up
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <>
-                  <label className="text-field">
-                    <span className="text-field-label">Power limit (kW)</span>
-                    <input
+                  <div className="text-field">
+                    <label className="text-field-label" htmlFor={`limit-${r.id}`}>
+                      Power limit (kW)
+                    </label>
+                    <Input
+                      id={`limit-${r.id}`}
+                      className={invalid ? "input-invalid" : ""}
                       type="number"
-                      className={`text-field-input ${invalid ? "text-field-invalid" : ""}`}
                       min={0}
                       max={max}
                       step={0.1}
                       value={Number.isNaN(limit) ? "" : limit}
+                      disabled={!live}
                       onChange={(e) => setLimit(parseFloat(e.target.value))}
                     />
-                    <span className={`text-field-helper ${invalid ? "text-red" : ""}`}>
+                    <span className={`text-field-helper ${invalid ? "text-field-helper-invalid" : ""}`}>
                       Max {max} kW for this charge point
                     </span>
-                  </label>
+                  </div>
                   <div className="detail-actions">
-                    <button
-                      type="button"
-                      className="btn btn-tonal"
+                    <Button
+                      variant="outline"
+                      size="default"
+                      icon={<Power />}
                       disabled={!live}
                       onClick={() => sendEvActivation(r, "ClearPowerLimit")}
                     >
                       Clear limit
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-solid"
-                      disabled={!canSend}
-                      onClick={() => sendEvActivation(r, "SetPowerLimit", limit)}
-                    >
+                    </Button>
+                    <Button size="default" icon={<Zap />} disabled={!canSend} onClick={() => sendEvActivation(r, "SetPowerLimit", limit)}>
                       Send activation
-                    </button>
+                    </Button>
                   </div>
                 </>
               )}
-              <div className="kv-row">
-                <span className="kv-key">ends_at</span>
-                <span className="kv-value">
-                  {endsAt ? `${formatClock(endsAt)} · ${formatUntil(endsAt, now)}` : "—"}
-                </span>
+              <div className="detail-kv">
+                <KeyValue name="ends_at">{endsAt ? `${formatClock(endsAt)} · ${formatUntil(endsAt, now)}` : "—"}</KeyValue>
+                {!isHp && (
+                  <KeyValue name="acceptance">
+                    {ack ? <StatusBadge status={ack}>{displayAck(r)}</StatusBadge> : displayAck(r)}
+                  </KeyValue>
+                )}
               </div>
-              {!isHp && (
-                <div className="kv-row">
-                  <span className="kv-key">Round trip</span>
-                  <span className={`kv-value ${roundTrip !== null && roundTrip <= 2000 ? "text-green" : ""}`}>
-                    {roundTrip === null ? "—" : `${roundTrip} ms`}
-                  </span>
-                </div>
-              )}
             </section>
 
-            <section className="detail-section">
-              <p className="detail-section-label">{isHp ? "AVAILABILITY · v1/measurement" : "POWER · v1/power"}</p>
-              {isHp ? (
-                <>
-                  <div className="kv-row">
-                    <span className="kv-key">availableUpKw</span>
-                    <span className="kv-value">{r.availableUpKw === null ? "—" : `${r.availableUpKw.toFixed(1)} kW`}</span>
-                  </div>
-                  <div className="kv-row">
-                    <span className="kv-key">availableDownKw</span>
-                    <span className="kv-value">{r.availableDownKw === null ? "—" : `${r.availableDownKw.toFixed(1)} kW`}</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Sparkline values={r.powerHistoryKw} limit={r.activation?.powerLimitKw ?? max} />
-                  <div className="kv-row">
-                    <span className="kv-key">Latest</span>
-                    <span className="kv-value">{r.powerKw === null ? "—" : `${r.powerKw.toFixed(1)} kW`}</span>
-                  </div>
-                </>
-              )}
-            </section>
+            {!isHp && (
+              <section className="detail-section">
+                <p className="detail-overline">Power · v1/power</p>
+                <Sparkline values={r.powerHistoryKw} limit={r.activation?.powerLimitKw ?? max} />
+                <div className="detail-limit">
+                  <Progress value={r.powerKw === null ? 0 : (r.powerKw / max) * 100} tone="import" />
+                  <span className="detail-limit-caption">
+                    {r.powerKw === null ? "—" : `${r.powerKw.toFixed(1)} of ${max} kW`}
+                  </span>
+                </div>
+              </section>
+            )}
           </>
         )}
 
         {tab === "Telemetry" && (
           <section className="detail-section">
-            <p className="detail-section-label">TELEMETRY · last {ownFeed.length} messages</p>
+            <p className="detail-overline">Telemetry · last {ownFeed.length} messages</p>
             {ownFeed.length === 0 && <p className="text-field-helper">No messages yet.</p>}
-            {ownFeed.map((e) => (
-              <div className="kv-row" key={e.id}>
-                <span className="kv-key mono">v1/{e.channel}</span>
-                <span className="kv-value">
-                  {e.summary} <span className="text-muted">· {formatAgo(e.at, now)}</span>
-                </span>
-              </div>
-            ))}
+            <div className="detail-timeline">
+              {ownFeed.map((e, i) => (
+                <TimelineItem
+                  key={e.id}
+                  status={feedTone(e)}
+                  title={`v1/${e.channel}`}
+                  time={`${formatClock(e.at)} · ${formatAgo(e.at, now)}`}
+                  description={e.summary}
+                  showConnector={i < ownFeed.length - 1}
+                />
+              ))}
+            </div>
           </section>
         )}
 
         {(tab === "Control" || tab === "Registration") && (
           <section className="detail-section">
-            <p className="detail-section-label">REGISTRATION · v1/register</p>
-            {isHp ? (
-              <>
-                <div className="kv-row">
-                  <span className="kv-key">compressorRatedPowerKW</span>
-                  <span className="kv-value">{r.compressorRatedPowerKW ?? "—"}</span>
-                </div>
-                <div className="kv-row">
-                  <span className="kv-key">backupHeaterRatedPowerKW</span>
-                  <span className="kv-value">{r.backupHeaterRatedPowerKW ?? "—"}</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="kv-row">
-                  <span className="kv-key">capability</span>
-                  <span className="kv-value">{r.capability.length ? r.capability.join(", ") : "—"}</span>
-                </div>
-                <div className="kv-row">
-                  <span className="kv-key">current_type</span>
-                  <span className="kv-value">{r.currentType ?? "—"}</span>
-                </div>
-                <div className="kv-row">
-                  <span className="kv-key">schedule</span>
-                  <span className="kv-value">
-                    {r.schedule ? `${r.schedule.starts_at} – ${r.schedule.ends_at}` : "—"}
-                  </span>
-                </div>
-                <div className="kv-row">
-                  <span className="kv-key">BRP (GS1)</span>
-                  <span className="kv-value mono">{r.brpCode ?? "—"}</span>
-                </div>
-              </>
-            )}
-            <div className="kv-row">
-              <span className="kv-key">subscription_status</span>
-              <span className={`kv-value ${r.subscriptionStatus === "Subscribed" ? "text-green" : "text-red"}`}>
-                {r.subscriptionStatus}
-              </span>
+            <p className="detail-overline">Registration · v1/register</p>
+            <div className="detail-kv">
+              {isHp ? (
+                <>
+                  <KeyValue name="compressorRatedPowerKW">{r.compressorRatedPowerKW ?? "—"}</KeyValue>
+                  <KeyValue name="backupHeaterRatedPowerKW">{r.backupHeaterRatedPowerKW ?? "—"}</KeyValue>
+                </>
+              ) : (
+                <>
+                  <KeyValue name="capability">{r.capability.length ? r.capability.join(", ") : "—"}</KeyValue>
+                  <KeyValue name="current_type">{r.currentType ?? "—"}</KeyValue>
+                  <KeyValue name="schedule">{r.schedule ? `${r.schedule.starts_at} – ${r.schedule.ends_at}` : "—"}</KeyValue>
+                  <KeyValue name="brp_code">
+                    <span className="mono">{r.brpCode ?? "—"}</span>
+                  </KeyValue>
+                </>
+              )}
+              <KeyValue name="subscription_status">
+                <StatusBadge status={r.subscriptionStatus === "Subscribed" ? "available" : "unavailable"} showDot={false}>
+                  {r.subscriptionStatus}
+                </StatusBadge>
+              </KeyValue>
             </div>
           </section>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 

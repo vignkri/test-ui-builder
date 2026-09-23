@@ -1,0 +1,167 @@
+.power-bar {
+  display: flex;
+  height: 6px;
+  width: 100%;
+  min-width: 80px;
+  background: var(--muted);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.power-bar-half {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+
+.power-bar-import {
+  justify-content: flex-end;
+}
+
+.power-bar-indicator {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 200ms ease-out;
+}
+
+.power-bar-import .power-bar-indicator {
+  background: var(--flow-import);
+}
+
+.power-bar-export .power-bar-indicator {
+  background: var(--flow-export);
+}
+
+.power-bar-zero {
+  width: 1px;
+  background: var(--muted-foreground);
+  opacity: 0.6;
+}
+
+.timeline-item {
+  display: flex;
+  gap: var(--spacing-3);
+}
+
+.timeline-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1) var(--spacing-0-5);
+  flex-shrink: 0;
+}
+
+.timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.timeline-connector {
+  flex: 1;
+  width: 1.5px;
+  background: var(--border);
+}
+
+.timeline-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--spacing-0-5) 0 12px;
+}
+
+.timeline-top {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-width: 0;
+}
+
+.timeline-title {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.timeline-description {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+
+.timeline-item-available .timeline-dot {
+  background: var(--status-available);
+}
+
+.timeline-item-available .timeline-title {
+  color: var(--status-available-foreground);
+}
+
+.timeline-item-activated .timeline-dot {
+  background: var(--status-activated);
+}
+
+.timeline-item-activated .timeline-title {
+  color: var(--status-activated-foreground);
+}
+
+.timeline-item-unavailable .timeline-dot {
+  background: var(--status-unavailable);
+}
+
+.timeline-item-unavailable .timeline-title {
+  color: var(--status-unavailable-foreground);
+}
+
+.timeline-item-faulted .timeline-dot {
+  background: var(--status-faulted);
+}
+
+.timeline-item-faulted .timeline-title {
+  color: var(--status-faulted-foreground);
+}
+
+.key-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  padding: var(--spacing-1-5) 0;
+}
+
+.key-value-key {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.key-value-value {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--foreground);
+  white-space: nowrap;
+  text-align: right;
+}

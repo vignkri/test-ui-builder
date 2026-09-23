@@ -1,149 +1,167 @@
-/* Weavemancer Design System — tokens
-   Radix Colors 12-step scales (light), 4px space scale, medium radius, Inter. */
+/* DER Monitor — design tokens (OpusFivePFiveMancer · Foundations & Spec)
+   shadcn/ui semantic layer + DER status / type / flow tokens, Light and Dark.
+   Primitives: sage, sky, aqua, clay-ish faulted tone; DM Sans + JetBrains Mono. */
 :root {
-  /* slate — neutral UI */
-  --slate-1: #fcfcfd;
-  --slate-2: #f9f9fb;
-  --slate-3: #f0f0f3;
-  --slate-4: #e8e8ec;
-  --slate-5: #e0e1e6;
-  --slate-6: #d9d9e0;
-  --slate-7: #cdced6;
-  --slate-8: #b9bbc6;
-  --slate-9: #8b8d98;
-  --slate-10: #80838d;
-  --slate-11: #60646c;
-  --slate-12: #1c2024;
+  color-scheme: light;
 
-  /* green — EV charger */
-  --green-1: #fbfefc;
-  --green-2: #f4fbf6;
-  --green-3: #e6f6eb;
-  --green-4: #d6f1df;
-  --green-5: #c4e8d1;
-  --green-6: #adddc0;
-  --green-7: #8eceaa;
-  --green-8: #5bb98b;
-  --green-9: #30a46c;
-  --green-10: #2b9a66;
-  --green-11: #218358;
-  --green-12: #193b2d;
+  /* core */
+  --background: #f3f8f6;
+  --foreground: #2b3d38;
+  --card: #ffffff;
+  --card-foreground: #2b3d38;
+  --popover: #ffffff;
+  --popover-foreground: #2b3d38;
+  --primary: #467f62;
+  --primary-foreground: #ffffff;
+  --secondary: #e4eff8;
+  --secondary-foreground: #2c5374;
+  --muted: #eaf3ef;
+  --muted-foreground: #596c65;
+  --accent: #e4f2ea;
+  --accent-foreground: #2f5e48;
+  --destructive: #91523f;
+  --destructive-foreground: #ffffff;
+  --border: #dce8e3;
+  --input: #dce8e3;
+  --ring: #93bee0;
 
-  /* blue — heat pump */
-  --blue-1: #fbfdff;
-  --blue-2: #f4faff;
-  --blue-3: #e6f4fe;
-  --blue-4: #d5efff;
-  --blue-5: #c2e5ff;
-  --blue-6: #acd8fc;
-  --blue-7: #8ec8f6;
-  --blue-8: #5eb1ef;
-  --blue-9: #0090ff;
-  --blue-10: #0588f0;
-  --blue-11: #0d74ce;
-  --blue-12: #113264;
+  /* charts */
+  --chart-1: #95c9ac;
+  --chart-2: #93bee0;
+  --chart-3: #8ccfcb;
+  --chart-4: #5e9c7c;
+  --chart-5: #5a8db8;
 
-  /* amber — needs attention */
-  --amber-1: #fefdfb;
-  --amber-2: #fefbe9;
-  --amber-3: #fff7c2;
-  --amber-4: #ffee9c;
-  --amber-5: #fbe577;
-  --amber-6: #f3d673;
-  --amber-7: #e9c162;
-  --amber-8: #e2a336;
-  --amber-9: #ffc53d;
-  --amber-10: #ffba18;
-  --amber-11: #ab6400;
-  --amber-12: #4f3422;
+  /* sidebar */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #596c65;
+  --sidebar-primary: #467f62;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e4f2ea;
+  --sidebar-accent-foreground: #2f5e48;
+  --sidebar-border: #dce8e3;
+  --sidebar-ring: #93bee0;
 
-  /* red — fault */
-  --red-1: #fffcfc;
-  --red-2: #fff7f7;
-  --red-3: #feebec;
-  --red-4: #ffdbdc;
-  --red-5: #ffcdce;
-  --red-6: #fdbdbe;
-  --red-7: #f4a9aa;
-  --red-8: #eb8e90;
-  --red-9: #e5484d;
-  --red-10: #dc3e42;
-  --red-11: #ce2c31;
-  --red-12: #641723;
+  /* DER · status */
+  --status-available: #5e9c7c;
+  --status-available-muted: #e4f2ea;
+  --status-available-foreground: #2f5e48;
+  --status-activated: #5a8db8;
+  --status-activated-muted: #e4eff8;
+  --status-activated-foreground: #2c5374;
+  --status-unavailable: #a7b3ba;
+  --status-unavailable-muted: #eceff1;
+  --status-unavailable-foreground: #5c6871;
+  --status-faulted: #d69c8c;
+  --status-faulted-muted: #f6e6e1;
+  --status-faulted-foreground: #91523f;
+  --flow-import: #93bee0;
+  --flow-export: #95c9ac;
 
-  /* semantic roles, mapped from the 12-step scales */
-  --color-app-bg: var(--slate-1);
-  --color-panel-bg: #ffffff;
-  --color-subtle-bg: var(--slate-2);
-  --color-ui-bg: var(--slate-3);
-  --color-ui-bg-hover: var(--slate-4);
-  --color-ui-bg-active: var(--slate-5);
-  --color-border-subtle: var(--slate-6);
-  --color-border: var(--slate-7);
-  --color-border-hover: var(--slate-8);
-  --color-text-low: var(--slate-11);
-  --color-text: var(--slate-12);
+  /* DER · resource type */
+  --type-ev-charger: #e4eff8;
+  --type-ev-charger-foreground: #2c5374;
+  --type-heat-pump: #dff2f1;
+  --type-heat-pump-foreground: #347370;
+  --type-bess: #e4f2ea;
+  --type-bess-foreground: #2f5e48;
+  --type-chp: #eaf3ef;
+  --type-chp-foreground: #2f5e48;
+  --type-p2x: #cadff0;
+  --type-p2x-foreground: #2c5374;
+  --type-pv: #cbe6d6;
+  --type-pv-foreground: #2f5e48;
+  --type-misc: #f3f8f6;
+  --type-misc-foreground: #596c65;
 
-  /* type scale — Inter, size / line-height / tracking */
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
-
-  --text-8: 35px;
-  --leading-8: 40px;
-  --tracking-8: -0.35px;
-  --weight-8: 700;
-
-  --text-6: 24px;
-  --leading-6: 30px;
-  --tracking-6: -0.15px;
-  --weight-6: 500;
-
-  --text-5: 20px;
-  --leading-5: 28px;
-  --tracking-5: -0.1px;
-  --weight-5: 500;
-
-  --text-4: 18px;
-  --leading-4: 26px;
-  --tracking-4: -0.045px;
-  --weight-4: 500;
-
-  --text-3: 16px;
-  --leading-3: 24px;
-  --tracking-3: 0;
-  --weight-3: 400;
-
-  --text-2: 14px;
-  --leading-2: 20px;
-  --tracking-2: 0;
-  --weight-2m: 500;
-  --weight-2r: 400;
-
-  --text-1: 12px;
-  --leading-1: 16px;
-  --tracking-1: 0.03px;
-  --weight-1: 400;
-
-  /* space scale — 4px base */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
-  --space-7: 40px;
-  --space-8: 48px;
-  --space-9: 64px;
-
-  /* radius scale */
-  --radius-1: 3px;
-  --radius-2: 4px;
-  --radius-3: 6px;
-  --radius-4: 8px;
-  --radius-5: 12px;
-  --radius-6: 16px;
+  /* radius — shadcn scale around --radius (10px) */
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
   --radius-full: 9999px;
 
-  --radius-default: var(--radius-3);
-  --radius-panel: var(--radius-4);
+  /* spacing — Tailwind 4px scale */
+  --spacing-0-5: 2px;
+  --spacing-1: 4px;
+  --spacing-1-5: 6px;
+  --spacing-2: 8px;
+  --spacing-2-5: 10px;
+  --spacing-3: 12px;
+  --spacing-3-5: 14px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+
+  --shadow-xs: 0 1px 2px rgba(23, 36, 31, 0.05);
+
+  /* type */
+  --font-sans: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+:root.dark {
+  color-scheme: dark;
+
+  --background: #141c1a;
+  --foreground: #eef4f1;
+  --card: #1b2522;
+  --card-foreground: #eef4f1;
+  --popover: #1b2522;
+  --popover-foreground: #eef4f1;
+  --primary: #95c9ac;
+  --primary-foreground: #141c1a;
+  --secondary: #1d3447;
+  --secondary-foreground: #cadff0;
+  --muted: #24312d;
+  --muted-foreground: #8fa39c;
+  --accent: #1f3a2e;
+  --accent-foreground: #cbe6d6;
+  --destructive: #e3b3a6;
+  --destructive-foreground: #141c1a;
+  --border: #2f3f3a;
+  --input: #2f3f3a;
+  --ring: #5a8db8;
+
+  --sidebar: #1b2522;
+  --sidebar-foreground: #8fa39c;
+  --sidebar-primary: #95c9ac;
+  --sidebar-primary-foreground: #141c1a;
+  --sidebar-accent: #1f3a2e;
+  --sidebar-accent-foreground: #cbe6d6;
+  --sidebar-border: #2f3f3a;
+  --sidebar-ring: #5a8db8;
+
+  --status-available: #95c9ac;
+  --status-available-muted: #1f3a2e;
+  --status-available-foreground: #cbe6d6;
+  --status-activated: #93bee0;
+  --status-activated-muted: #1d3447;
+  --status-activated-foreground: #cadff0;
+  --status-unavailable: #8fa39c;
+  --status-unavailable-muted: #2e3639;
+  --status-unavailable-foreground: #c7d5d0;
+  --status-faulted-muted: #3f2723;
+  --status-faulted-foreground: #e3b3a6;
+
+  --type-ev-charger: #1d3447;
+  --type-ev-charger-foreground: #cadff0;
+  --type-heat-pump: #173b39;
+  --type-heat-pump-foreground: #8ccfcb;
+  --type-bess: #1f3a2e;
+  --type-bess-foreground: #cbe6d6;
+  --type-chp: #24312d;
+  --type-chp-foreground: #cbe6d6;
+  --type-p2x: #1d3447;
+  --type-p2x-foreground: #cadff0;
+  --type-pv: #1f3a2e;
+  --type-pv-foreground: #95c9ac;
+  --type-misc: #24312d;
+  --type-misc-foreground: #8fa39c;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
 }

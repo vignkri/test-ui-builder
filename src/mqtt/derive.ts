@@ -1,9 +1,4 @@
-import type { Health, Resource, ResourceType } from "../types";
-
-export const TYPE_LABEL: Record<ResourceType, string> = {
-  "ev-charger": "EV Charger",
-  "heat-pump": "Heat Pump",
-};
+import type { DerType, FeedEntry, Freshness, Health, Resource, ResourceType, StatusTone } from "../types";
 
 export const ACK_TARGET_MS = 2000;
 
@@ -25,23 +20,31 @@ export function healthOf(r: Resource, now: number = Date.now()): Health {
   return "ok";
 }
 
-export function displayState(r: Resource): string {
-  return r.status ?? "—";
-}
-
 export function displayActivation(r: Resource): string {
   const a = r.activation;
   if (!a) return "—";
-  if (a.kind === "SetPowerLimit") return `SetPowerLimit ${(a.powerLimitKw ?? 0).toFixed(1)} kW`;
+  if (a.kind === "SetPowerLimit") return `Limit ${(a.powerLimitKw ?? 0).toFixed(1)} kW`;
   return a.kind;
 }
 
-export function displayTelemetry(r: Resource): string {
-  if (r.type === "heat-pump") {
-    if (r.availableUpKw === null || r.availableDownKw === null) return "—";
-    return `↑${r.availableUpKw.toFixed(1)} / ↓${r.availableDownKw.toFixed(1)} kW`;
-  }
-  return r.powerKw === null ? "—" : `${r.powerKw.toFixed(1)} kW`;
+/** Generator convention: export positive, import negative. A charging EV imports. */
+export function signedPowerKw(r: Resource): number | null {
+  return r.powerKw === null ? null : -r.powerKw;
+}
+
+export function formatSigned(n: number): string {
+  const sign = n > 0 ? "+" : n < 0 ? "\u2212" : "";
+  return `${sign}${Math.abs(n).toFixed(1)}`;
+}
+
+export function formatKw(kw: number): string {
+  return `${formatSigned(kw)} kW`;
+}
+
+/** Headroom is published as unsigned magnitudes; show it as sampled, never recomputed. */
+export function formatHeadroom(r: Resource): string {
+  if (r.availableUpKw === null || r.availableDownKw === null) return "—";
+  return `\u2191 ${r.availableUpKw.toFixed(1)}  \u2193 ${r.availableDownKw.toFixed(1)}`;
 }
 
 /** "Pending" is client-derived (activation seen, no ack yet); heat pumps never acknowledge. */
@@ -51,32 +54,73 @@ export function displayAck(r: Resource): string {
   return r.acknowledgement?.acceptance ?? "—";
 }
 
-export function ackTone(r: Resource): "green" | "amber" | "red" | "muted" {
-  if (r.type === "heat-pump" || (!r.ackPending && !r.acknowledgement)) return "muted";
-  if (r.ackPending) return "amber";
-  return r.acknowledgement?.acceptance === "Accepted" ? "green" : "red";
+/**
+ * Acknowledgement tone: Accepted is green, "the resource could not act" outcomes are grey,
+ * rejections and malformed requests take the faulted tone, pending is platform-blue.
+ * Null means there is nothing to acknowledge.
+ */
+export function ackTone(r: Resource): StatusTone | null {
+  if (r.type === "heat-pump") return null;
+  if (r.ackPending) return "activated";
+  const acceptance = r.acknowledgement?.acceptance;
+  if (!acceptance) return null;
+  if (acceptance === "Accepted") return "available";
+  if (acceptance === "EvseOffline" || acceptance === "EvDisconnected" || acceptance === "NoEvCharging") {
+    return "unavailable";
+  }
+  return "faulted";
 }
 
-export function stateTone(r: Resource): "green" | "blue" | "amber" | "red" | "low" {
+/**
+ * Resource state → the four DER states. Activated means the platform holds it to a command;
+ * the charger's own session states (Preparing, Suspended…) stay Available. Null = no event yet.
+ */
+export function stateTone(r: Resource): StatusTone | null {
   switch (r.status) {
-    case "Charging":
-      return "green";
-    case "ActivatedUp":
-    case "ActivatedDown":
-      return "blue";
-    case "SuspendedEV":
-    case "SuspendedEVSE":
-    case "Preparing":
-    case "Reserved":
-      return "amber";
+    case null:
+      return null;
     case "Faulted":
+      return "faulted";
     case "Offline":
     case "Unavailable":
-      return "red";
+      return "unavailable";
+    case "ActivatedUp":
+    case "ActivatedDown":
+      return "activated";
     default:
-      return "low";
+      return r.activation && r.activation.kind !== "ClearPowerLimit" && r.activation.kind !== "Release"
+        ? "activated"
+        : "available";
   }
 }
+
+/** Feed rows: dispatch traffic is platform-blue, everything else follows the resource's health. */
+export function feedTone(e: FeedEntry): StatusTone {
+  if (e.channel === "activation" || e.channel === "acknowledgement") {
+    if (e.health === "ok") return "activated";
+  }
+  switch (e.health) {
+    case "ok":
+      return "available";
+    case "offline":
+      return "unavailable";
+    default:
+      return "faulted";
+  }
+}
+
+/** No heartbeat exists, so a quiet resource is flagged "stale" — never shown as Unavailable. */
+export const STALE_AFTER_MS = 5 * 60_000;
+
+export function freshnessOf(r: Resource, live: boolean, now: number = Date.now()): Freshness {
+  if (!live) return "lastKnown";
+  return now - r.lastMessageAt > STALE_AFTER_MS ? "stale" : "live";
+}
+
+export const DER_TYPE: Record<ResourceType, DerType> = {
+  "ev-charger": "evCharger",
+  "heat-pump": "heatPump",
+};
 
 export function formatAgo(atMs: number, now: number = Date.now()): string {
   const s = Math.max(0, Math.round((now - atMs) / 1000));
@@ -87,8 +131,12 @@ export function formatAgo(atMs: number, now: number = Date.now()): string {
   return `${Math.round(m / 60)}h`;
 }
 
-export function formatClock(atMs: number): string {
-  return new Date(atMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+export function formatClock(atMs: number, withSeconds = true): string {
+  return new Date(atMs).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(withSeconds ? { second: "2-digit" } : {}),
+  });
 }
 
 export function formatUntil(atMs: number, now: number = Date.now()): string {

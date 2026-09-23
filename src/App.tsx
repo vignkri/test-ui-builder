@@ -1,55 +1,78 @@
 import { useMemo, useState } from "react";
-import { TopHeader } from "./components/TopHeader";
-import { SideNav, type Section } from "./components/SideNav";
-import { PageHeader } from "./components/PageHeader";
+import { WifiOff } from "lucide-react";
+import { AppSidebar, type Section } from "./components/AppSidebar";
+import { PageHeader, type ZoneFilter } from "./components/PageHeader";
 import { KpiRow } from "./components/KpiRow";
 import { MapView } from "./components/MapView";
 import { EventFeed } from "./components/EventFeed";
 import { ResourceTable } from "./components/ResourceTable";
 import { ResourceDetail } from "./components/ResourceDetail";
+import { Alert } from "./components/ui/Feedback";
 import { formatAgo, healthOf } from "./mqtt/derive";
+import { CUSTOMER } from "./mqtt/fleet";
 import { useConnectionStatus, useFleet, useNow } from "./mqtt/useFleet";
+import { useTheme } from "./theme";
+import type { Resource } from "./types";
 import "./App.css";
 
 const SECTION_TITLE: Record<Section, string> = {
-  all: "Distributed energy resources",
-  "ev-charger": "Distributed energy resources",
-  "heat-pump": "Distributed energy resources",
+  all: "Distributed resources",
+  "ev-charger": "EV chargers",
+  "heat-pump": "Heat pumps",
   faults: "Faults",
   map: "Live fleet map",
 };
+
+type ConnectionKind = ReturnType<typeof useConnectionStatus>["kind"];
 
 const OFFLINE_COPY: Record<Exclude<ConnectionKind, "live">, string> = {
   connecting: "Connecting to the broker",
   reconnecting: "Connection to the broker was lost — retrying",
   disconnected: "Not connected to the broker",
 };
-type ConnectionKind = ReturnType<typeof useConnectionStatus>["kind"];
+
+function inSection(r: Resource, section: Section, now: number): boolean {
+  switch (section) {
+    case "ev-charger":
+    case "heat-pump":
+      return r.type === section;
+    case "faults": {
+      const h = healthOf(r, now);
+      return h === "fault" || h === "needs-attention";
+    }
+    default:
+      return true;
+  }
+}
 
 function App() {
   const { resources, feed, lastMessageAt } = useFleet();
   const status = useConnectionStatus();
   const live = status.kind === "live";
   const now = useNow(1000);
-  const [section, setSection] = useState<Section>("ev-charger");
+  const [theme, toggleTheme] = useTheme();
+  const [section, setSection] = useState<Section>("all");
+  const [zone, setZone] = useState<ZoneFilter>("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const sectionResources = useMemo(() => {
-    switch (section) {
-      case "ev-charger":
-        return resources.filter((r) => r.type === "ev-charger");
-      case "heat-pump":
-        return resources.filter((r) => r.type === "heat-pump");
-      case "faults":
-        return resources.filter((r) => {
-          const h = healthOf(r, now);
-          return h === "fault" || h === "needs-attention";
-        });
-      default:
-        return resources;
+  const zoneResources = useMemo(
+    () => (zone === "all" ? resources : resources.filter((r) => r.zone === zone)),
+    [resources, zone]
+  );
+
+  const counts = useMemo(() => {
+    const c: Partial<Record<Section, number>> = {};
+    for (const s of ["all", "ev-charger", "heat-pump", "faults"] as const) {
+      c[s] = zoneResources.filter((r) => inSection(r, s, now)).length;
     }
-  }, [resources, section, now]);
+    return c;
+  }, [zoneResources, now]);
+
+  const sectionResources = useMemo(
+    () => zoneResources.filter((r) => inSection(r, section, now)),
+    [zoneResources, section, now]
+  );
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -66,50 +89,60 @@ function App() {
         : (filtered[0]?.id ?? null);
   const selected = resources.find((r) => r.id === visibleSelectedId) ?? null;
 
-  const zones = [...new Set(resources.map((r) => r.zone))].sort().join(" and ");
   const ago = lastMessageAt ? formatAgo(lastMessageAt, now) : null;
   const updated = ago === null ? "no messages yet" : ago === "now" ? "updated just now" : `updated ${ago} ago`;
+  const zoneLabel = zone === "all" ? "DK1 and DK2" : zone;
   const subtitle =
     section === "map"
-      ? `Markers pulse on every MQTT message · ${resources.length} shown`
-      : `${sectionResources.length} resources${zones ? ` across ${zones}` : ""} · ${updated}`;
+      ? `Markers pulse on every MQTT message · ${zoneResources.length} shown in ${zoneLabel}`
+      : `${sectionResources.length} resources in ${zoneLabel} · ${updated}`;
 
   return (
     <div className={`app-shell ${live ? "" : "app-offline"}`}>
-      <TopHeader status={status} />
-      {!live && (
-        <div className="offline-banner" role="status">
-          <span className="offline-banner-title">{OFFLINE_COPY[status.kind]}</span>
-          <span className="offline-banner-detail">{status.detail}</span>
-          {resources.length > 0 && <span className="offline-banner-detail">Showing last known state.</span>}
+      <AppSidebar
+        active={section}
+        onSelect={setSection}
+        counts={counts}
+        status={status}
+        customer={CUSTOMER}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+      <main className="app-main">
+        <PageHeader title={SECTION_TITLE[section]} subtitle={subtitle} zone={zone} onZoneChange={setZone} />
+        {!live && (
+          <Alert
+            variant="destructive"
+            icon={<WifiOff />}
+            title={OFFLINE_COPY[status.kind]}
+            description={
+              resources.length > 0 ? `${status.detail} · Showing last known state.` : status.detail
+            }
+          />
+        )}
+        <KpiRow resources={zoneResources} now={now} />
+        <div className="app-content">
+          {section === "map" ? (
+            <>
+              <MapView resources={zoneResources} selectedId={selectedId} onSelect={setSelectedId} />
+              <EventFeed feed={feed} now={now} live={live} />
+            </>
+          ) : (
+            <>
+              <ResourceTable
+                resources={filtered}
+                selectedId={visibleSelectedId}
+                onSelect={setSelectedId}
+                search={search}
+                onSearchChange={setSearch}
+                now={now}
+                live={live}
+              />
+              <ResourceDetail resource={selected} feed={feed} now={now} live={live} />
+            </>
+          )}
         </div>
-      )}
-      <div className="app-body">
-        <SideNav active={section} onSelect={setSection} />
-        <main className="app-main">
-          <PageHeader title={SECTION_TITLE[section]} subtitle={subtitle} />
-          <KpiRow resources={resources} now={now} />
-          <div className="app-content">
-            {section === "map" ? (
-              <>
-                <MapView resources={resources} selectedId={selectedId} onSelect={setSelectedId} />
-                <EventFeed feed={feed} now={now} live={live} />
-              </>
-            ) : (
-              <>
-                <ResourceTable
-                  resources={filtered}
-                  selectedId={visibleSelectedId}
-                  onSelect={setSelectedId}
-                  search={search}
-                  onSearchChange={setSearch}
-                />
-                <ResourceDetail resource={selected} feed={feed} now={now} live={live} />
-              </>
-            )}
-          </div>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }

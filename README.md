@@ -1,8 +1,22 @@
-# Weavemancer — fleet console
+# DER Monitor — fleet console
 
 A TypeScript + React front end for the [GridHub Connect](https://connect.gridhub.ai/distributed-resources/welcome)
-distributed-resources API, built from the Weavemancer Figma file (`04 · Screens`, styled with the
-Radix-based tokens on `01 · Foundations`).
+distributed-resources API, styled from the OpusFivePFiveMancer Figma file ("DER Monitor"): the
+shadcn/ui-shaped theme tokens, text styles and component library on `Foundations & Spec`, with
+Light and Dark themes.
+
+## Design system
+
+- `src/styles/tokens.css` — the Figma theme variables one-to-one (`--background`, `--primary`,
+  `--status-{available,activated,unavailable,faulted}[-muted|-foreground]`, `--type-*`, `--flow-*`,
+  radius and spacing). `.dark` on `<html>` switches to the Dark mode values; the sidebar has a toggle.
+- `src/components/ui/` — the component library, one file per Figma page: Button, Badge
+  (StatusBadge, TypeBadge, FreshnessBadge, CommandBadge), Card (KpiCard, MetricTile), Inputs
+  (Input, ToggleGroup), Feedback (Alert, Progress), Sidebar (SidebarMenuButton, SidebarStatus) and
+  Data display (PowerBar, TimelineItem, KeyValue). Icons are lucide-react, as the design specifies.
+- The design is written for the v2 API; this app still speaks v1. `src/mqtt/derive.ts` maps v1
+  states and acceptance codes onto the design's four state tones, shows power with the generator
+  convention (export +, import −), and flags quiet resources as "stale" rather than Unavailable.
 
 Everything the UI shows is derived, in the browser, from MQTT traffic. There is no REST layer
 and no mock data: an in-page client subscribes to the customer's topic tree, a pure reducer

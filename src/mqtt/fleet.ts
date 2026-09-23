@@ -8,7 +8,7 @@ import { ulid } from "./ulid";
 const ACTIVATION_DURATION_MS = 3_600_000;
 
 const env = import.meta.env;
-const CUSTOMER: string = env.VITE_MQTT_CUSTOMER || "acme-flex";
+export const CUSTOMER: string = env.VITE_MQTT_CUSTOMER || "acme-flex";
 const MQTT_URL: string | undefined = env.VITE_MQTT_URL || undefined;
 
 export const fleetStore = new FleetStore();

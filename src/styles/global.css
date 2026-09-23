@@ -11,11 +11,12 @@ body {
 }
 
 body {
-  background: var(--color-app-bg);
-  color: var(--color-text);
+  background: var(--background);
+  color: var(--foreground);
   font-family: var(--font-sans);
-  font-size: var(--text-3);
-  line-height: var(--leading-3);
+  font-optical-sizing: auto;
+  font-size: 14px;
+  line-height: 20px;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -35,4 +36,73 @@ code,
 
 a {
   color: inherit;
+}
+
+/* Text styles — mirror the Figma text styles one-to-one. */
+.t-heading-page {
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 700;
+}
+
+.t-heading-section {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+.t-heading-card {
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.t-body-small {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+}
+
+.t-caption {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.t-label {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+
+.t-label-strong {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.t-overline {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.66px;
+  text-transform: uppercase;
+}
+
+.t-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+
+.t-mono-small {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.text-muted {
+  color: var(--muted-foreground);
 }

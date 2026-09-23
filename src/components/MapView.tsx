@@ -18,7 +18,7 @@ export function MapView({ resources, selectedId, onSelect }: Props) {
   return (
     <div className="map-view">
       <p className="map-caption">Boundaries: Natural Earth 10m (public domain) &middot; Web Mercator</p>
-      <img className="map-silhouette" src={denmarkSilhouette} alt="" aria-hidden="true" />
+      <div className="map-silhouette" style={{ maskImage: `url(${denmarkSilhouette})` }} aria-hidden="true" />
       {resources.map((r) => {
         const health = healthOf(r, now);
         const recent = now - r.lastMessageAt < PULSE_WINDOW_MS;

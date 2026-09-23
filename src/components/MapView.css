@@ -2,30 +2,36 @@
   position: relative;
   flex: 1 1 0;
   min-width: 0;
-  background: var(--green-1);
-  border: 1px solid var(--slate-6);
-  border-radius: var(--radius-4);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  min-height: 420px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
   overflow: hidden;
 }
 
 .map-caption {
   position: absolute;
-  left: var(--space-4);
-  top: var(--space-4);
+  left: var(--spacing-5);
+  top: var(--spacing-4);
   margin: 0;
-  font-size: var(--text-1);
-  color: var(--color-text-low);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted-foreground);
   z-index: 1;
 }
 
+/* The silhouette is a mask so it follows the theme instead of a baked-in fill. */
 .map-silhouette {
   position: absolute;
   left: 8%;
   top: 3%;
   width: 84%;
   height: 94%;
-  object-fit: contain;
+  background: var(--muted);
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
 }
 
 .map-marker {
@@ -38,102 +44,108 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: var(--radius-full);
   cursor: pointer;
+}
+
+.map-marker:focus-visible {
+  outline: 2px solid var(--ring);
 }
 
 .map-marker-dot {
   width: 12px;
   height: 12px;
   border-radius: var(--radius-full);
-  border: 2px solid white;
-  box-shadow: 0 0 0 1px var(--slate-6);
+  border: 2px solid var(--card);
+  box-shadow: 0 0 0 1px var(--border);
 }
 
 .map-marker-ev-charger .map-marker-dot {
-  background: var(--green-9);
+  background: var(--chart-5);
 }
 
 .map-marker-heat-pump .map-marker-dot {
-  background: var(--blue-9);
+  background: var(--chart-3);
 }
 
 .map-marker-health-offline .map-marker-dot {
-  background: var(--slate-8);
+  background: var(--status-unavailable);
 }
 
 .map-marker-health-fault .map-marker-dot {
-  background: var(--red-9);
+  background: var(--status-faulted);
 }
 
 .map-marker-health-needs-attention .map-marker-dot {
-  box-shadow: 0 0 0 2px var(--amber-8);
+  box-shadow: 0 0 0 2px var(--status-faulted);
 }
 
 .map-marker-selected .map-marker-dot {
-  box-shadow: 0 0 0 3px var(--slate-12);
+  box-shadow: 0 0 0 3px var(--foreground);
 }
 
 .map-marker-updated {
-  border-radius: var(--radius-full);
   animation: marker-pulse 0.8s ease-out 1;
 }
 
 .map-marker-heat-pump.map-marker-updated {
-  animation-name: marker-pulse-blue;
+  animation-name: marker-pulse-aqua;
 }
 
 @keyframes marker-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(48, 164, 108, 0.35);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--chart-5) 45%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 12px rgba(48, 164, 108, 0);
+    box-shadow: 0 0 0 12px color-mix(in srgb, var(--chart-5) 0%, transparent);
   }
 }
 
-@keyframes marker-pulse-blue {
+@keyframes marker-pulse-aqua {
   0% {
-    box-shadow: 0 0 0 0 rgba(0, 144, 255, 0.35);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--chart-3) 55%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 12px rgba(0, 144, 255, 0);
+    box-shadow: 0 0 0 12px color-mix(in srgb, var(--chart-3) 0%, transparent);
   }
 }
 
 .map-legend {
   position: absolute;
-  left: var(--space-4);
-  bottom: var(--space-4);
-  background: var(--color-panel-bg);
-  border: 1px solid var(--slate-6);
-  border-radius: var(--radius-3);
-  padding: 10px var(--space-3);
+  left: var(--spacing-5);
+  bottom: var(--spacing-4);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: var(--spacing-2-5) var(--spacing-3);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  font-size: var(--text-2);
+  gap: var(--spacing-2);
+  font-size: 13px;
+  line-height: 18px;
 }
 
 .map-legend-item {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--spacing-2);
 }
 
 .map-legend-dot {
   width: 10px;
   height: 10px;
   border-radius: var(--radius-full);
-  border: 2px solid white;
-  box-shadow: 0 0 0 1px var(--slate-6);
+  border: 2px solid var(--card);
+  box-shadow: 0 0 0 1px var(--border);
 }
 
 .map-legend-dot-ev {
-  background: var(--green-9);
+  background: var(--chart-5);
 }
 
 .map-legend-dot-hp {
-  background: var(--blue-9);
+  background: var(--chart-3);
 }
 
 .map-legend-pulse {

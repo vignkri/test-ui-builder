@@ -88,12 +88,7 @@
 
 /* Unsubscribed: record retained, row dimmed. Stale: data gap, not a state. */
 .resource-table tbody tr.row-dimmed,
-.resource-table tbody tr.row-stale /* The ack outcome rides on the activation's second line; only failures take colour. */
-.cell-ack-faulted {
-  color: var(--status-faulted-foreground);
-}
-
-.cell-power {
+.resource-table tbody tr.row-stale .cell-power {
   opacity: 0.55;
 }
 

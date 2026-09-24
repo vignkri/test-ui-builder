@@ -1,7 +1,8 @@
 # DER Monitor — fleet console
 
 A TypeScript + React console for the Hybrid Greentech / gridhub
-[Distributed Energy Resources **v2** API](https://connect.gridhub.ai/distributed-resources/welcome),
+[Distributed Energy Resources API](https://connect.gridhub.ai/distributed-resources/welcome) —
+**v2**, and the deprecated-but-operational **v1** EV charger and heat pump APIs side by side —
 built from the OpusFivePFiveMancer Figma file: the `Resource Monitor` screens, on the
 shadcn/ui-shaped tokens and component library from `Foundations & Spec`, in Light and Dark.
 
@@ -47,8 +48,8 @@ npm run dev
 The spec publishes the sandbox broker as `aggregator.gridhub.dev:8883` (MQTTS). Browsers cannot
 open raw TLS sockets, so the client needs the broker's **WebSocket** listener; the spec does not
 document one, so the URL is configuration. Credentials in the spec are per-resource; a fleet
-console needs an account allowed to subscribe to `{zone}/{customer}/v2/#` and to publish on
-`…/v2/activation/{resourceId}`.
+console needs an account allowed to subscribe to `{zone}/{customer}/v2/#` and `…/v1/#`, and to
+publish on `…/{v1|v2}/activation/{resourceId}`.
 
 `npm run build` type-checks and bundles; `npm run lint` runs oxlint. `mqtt.js` is code-split and
 only downloaded when a URL is configured.
@@ -61,9 +62,15 @@ broker ──wss──▶ MqttConnection ──▶ FleetStore.apply(topic, paylo
    └──────────── publish Setpoint / Release ◀── detail panel, Release dialog ◀──┘
 ```
 
-- `src/mqtt/topics.ts` — `{DK1|DK2}/{customer}/v2/{channel}/{resourceId}` for the six channels
-  (`register`, `update`, `measurements`, `events`, `activation`, `acknowledgement`). v1 topics are
-  also subscribed, but only noted, so Registration can list resources still to migrate.
+- `src/mqtt/topics.ts` — `{DK1|DK2}/{customer}/v2/{channel}/{resourceId}` for the six v2 channels
+  (`register`, `update`, `measurements`, `events`, `activation`, `acknowledgement`), and the v1
+  channels (`power`, `status`, `measurement`, `event`, … plus `v1/bulk/{channel}`).
+- `src/mqtt/v1.ts` — translates v1 payloads into the v2 model at the boundary, following the
+  [migration guide](https://connect.gridhub.ai/distributed-resources/migration): EV `power_kw`
+  flips sign (hazard 1), `Offline` becomes Unavailable and OCPP session states move to
+  `sessionState`, `ActivatedUp/Down` collapse into Activated, `SetPowerLimit`/`ClearPowerLimit`
+  read as Setpoint/Release, and v1 acceptance codes map to v2 with a `reason`. Heat pump
+  `availableDownKw` is shown as published — it covers the heater alone (hazard 2).
 - `src/mqtt/messages.ts` — v2 payload types with the spec's field names (flat camelCase) and
   runtime guards. Seven resource types, four resource states, the eight acceptance values.
 - `src/mqtt/store.ts` — the reducer. Registration sets the envelope (`maxImportKw`,
@@ -72,10 +79,20 @@ broker ──wss──▶ MqttConnection ──▶ FleetStore.apply(topic, paylo
   transitions and Last Will (`ConnectionLost` with a null `resourceTimestamp`) are explicit.
   Acknowledgements join their activation by `activationId`; latency is `executedAt −
   serverTimestamp`. QoS 1 redeliveries of the same `messageId` are ignored.
-- `src/mqtt/fleet.ts` — `sendSetpoint` (signed kW, always with `endsAt`) and `sendRelease`.
+- `src/mqtt/fleet.ts` — commands go out on the version the resource speaks: v2 `sendSetpoint`
+  (signed kW, always with `endsAt`) and `sendRelease`; v1 `SetPowerLimit`/`ClearPowerLimit` for EV
+  chargers and `ActivationUp`/`ActivationDown`/`Release` for heat pumps.
   Publishes go to the broker only; the store updates from the broker's echo, so the UI never shows
   a command the broker did not take. Publishing is refused unless the connection is live.
 - `src/mqtt/derive.ts` — tones, freshness, market bounds, nearest reachable setpoint, formatting.
+
+### v1 and v2 together
+
+Migration is per resource: a resource is on whichever prefix it publishes to. Each resource
+carries `apiVersion`; the first v2 message makes it a v2 resource for good, and its v2
+registration replaces the v1 one. v1 resources show a `v1` badge, their own command vocabulary,
+and no dispatch envelope (v1 declares none). v1 heat pumps send no acknowledgements; v1 EV
+acknowledgements carry no `activationId`, so they join the command sent at `sent_at`.
 
 ### Rules the console follows from the spec
 

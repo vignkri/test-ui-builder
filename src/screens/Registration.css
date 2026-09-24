@@ -67,8 +67,26 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-2);
+  margin: 0 calc(-1 * var(--spacing-2));
+  padding: var(--spacing-1) var(--spacing-2);
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  font: inherit;
   font-size: 11px;
   color: var(--muted-foreground);
+  text-align: left;
+  cursor: pointer;
+}
+
+.registry-legacy-row:hover {
+  background: color-mix(in srgb, var(--card) 60%, transparent);
+}
+
+.registry-legacy-row-on,
+.registry-legacy-row-on:hover {
+  background: var(--card);
+  color: var(--foreground);
 }
 
 .declaration-title {

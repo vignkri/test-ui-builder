@@ -1,4 +1,4 @@
-import type { ActivationRecord, EventRecord, LegacyResource, Resource } from "../types";
+import type { ActivationRecord, EventRecord, Resource } from "../types";
 import {
   isAcknowledgement,
   isActivation,
@@ -7,14 +7,16 @@ import {
   isRegister,
   isRegisterEntry,
   isUpdate,
-  type AcknowledgementMessage,
-  type ActivationMessage,
-  type EventMessage,
-  type MeasurementMessage,
+  type Acceptance,
+  type EventKind,
+  type MeasurementType,
   type RegisterEntry,
+  type ResourceState,
+  type Severity,
   type UpdateMessage,
 } from "./messages";
-import { parseTopic, type Zone } from "./topics";
+import { parseTopic, type ApiVersion, type Zone } from "./topics";
+import { translateV1, type V1EvActivation, type V1HpActivation, type V1Op } from "./v1";
 
 export interface FleetSnapshot {
   resources: Resource[];
@@ -22,7 +24,6 @@ export interface FleetSnapshot {
   activations: ActivationRecord[];
   /** Newest first. */
   events: EventRecord[];
-  legacy: LegacyResource[];
   messageCount: number;
   lastMessageAt: number | null;
 }
@@ -31,11 +32,62 @@ const LOG_LIMIT = 500;
 const POWER_HISTORY_LIMIT = 30;
 const NOTIFY_COALESCE_MS = 50;
 
-function blankResource(id: string, zone: Zone, customer: string, now: number): Resource {
+// Version-neutral inputs: v2 messages map onto these directly, v1 through translateV1.
+
+interface MeasurementInput {
+  resourceId: string;
+  measurementType: MeasurementType;
+  value: number;
+  resourceTimestamp: number | null;
+  serverTimestamp: number;
+}
+
+interface EventInput {
+  messageId: string;
+  resourceId: string;
+  eventKind: EventKind;
+  resourceState: ResourceState;
+  /** v1 OCPP session states: keep an Activated resource Activated. */
+  sessionOnly: boolean;
+  severity: Severity;
+  sessionState: string | null;
+  code: string | null;
+  description: string | null;
+  resourceTimestamp: number | null;
+  serverTimestamp: number;
+  raw: object;
+}
+
+interface ActivationInput {
+  messageId: string;
+  resourceId: string;
+  command: "Setpoint" | "Release";
+  v1Command: V1EvActivation | V1HpActivation | null;
+  setpointKw: number | null;
+  endsAt: number | null;
+  serverTimestamp: number;
+  raw: object;
+}
+
+interface AckInput {
+  messageId: string;
+  resourceId: string;
+  /** v2 names the activation by id; v1 only by the time it was sent. */
+  activationId: string | null;
+  sentAt: number | null;
+  acceptance: Acceptance;
+  reason: string | null;
+  executedAt: number | null;
+  raw: object;
+}
+
+function blankResource(id: string, zone: Zone, customer: string, version: ApiVersion, now: number): Resource {
   return {
     id,
     zone,
     customer,
+    apiVersion: version,
+    v1: null,
     type: null,
     subscriptionStatus: "Subscribed",
     maxImportKw: null,
@@ -67,34 +119,20 @@ function decode(payload: Uint8Array | string | object): unknown {
   }
 }
 
-function payloadResourceId(v: unknown): string | null {
-  if (typeof v !== "object" || v === null) return null;
-  const o = v as Record<string, unknown>;
-  const id = o.resourceId ?? o.resource_id;
-  return typeof id === "string" ? id : null;
-}
-
 /**
- * Pure reducer over MQTT traffic on `{zone}/{customer}/v2/#` (and v1, which is only noted).
- * A resource appears the first time any message names it; registration fills in its envelope.
+ * Pure reducer over MQTT traffic on `{zone}/{customer}/v2/#` and `…/v1/#`. Both versions land in
+ * one model: v1 payloads are translated at the boundary (see v1.ts). A resource appears the first
+ * time any message names it; registration fills in its envelope.
  */
 export class FleetStore {
   private resources = new Map<string, Resource>();
   private activations: ActivationRecord[] = [];
   private activationsById = new Map<string, ActivationRecord>();
   private events: EventRecord[] = [];
-  private legacy = new Map<string, LegacyResource>();
   private messageCount = 0;
   private lastMessageAt: number | null = null;
   private listeners = new Set<() => void>();
-  private snapshot: FleetSnapshot = {
-    resources: [],
-    activations: [],
-    events: [],
-    legacy: [],
-    messageCount: 0,
-    lastMessageAt: null,
-  };
+  private snapshot: FleetSnapshot = { resources: [], activations: [], events: [], messageCount: 0, lastMessageAt: null };
   private notifyTimer: ReturnType<typeof setTimeout> | null = null;
 
   subscribe = (listener: () => void): (() => void) => {
@@ -116,15 +154,14 @@ export class FleetStore {
 
     this.messageCount++;
     this.lastMessageAt = receivedAt;
+    const { zone, customer } = t;
 
     if (t.version === "v1") {
-      const id = t.resourceId ?? payloadResourceId(payload);
-      if (id) this.legacy.set(id, { resourceId: id, zone: t.zone, channel: `v1/${t.channel.split("/")[0]}`, lastSeenAt: receivedAt });
+      for (const op of translateV1(t.channel, payload, t.resourceId, receivedAt)) this.applyV1(zone, customer, op, receivedAt);
       this.scheduleNotify();
       return;
     }
 
-    const { zone, customer } = t;
     switch (t.channel) {
       case "register":
         if (isRegister(payload)) {
@@ -137,35 +174,109 @@ export class FleetStore {
         if (isUpdate(payload) && payload.resourceId === t.resourceId) this.update(zone, customer, payload, receivedAt);
         break;
       case "measurements":
-        if (isMeasurement(payload)) this.measure(zone, customer, payload, receivedAt);
+        if (isMeasurement(payload)) this.measure(zone, customer, "v2", payload, receivedAt);
         break;
       case "events":
-        if (isEvent(payload)) this.event(zone, customer, payload, receivedAt);
+        if (isEvent(payload)) {
+          this.event(zone, customer, "v2", {
+            ...payload,
+            sessionOnly: false,
+            sessionState: payload.sessionState ?? null,
+            code: payload.code ?? null,
+            description: payload.description ?? null,
+            raw: payload,
+          }, receivedAt);
+        }
         break;
       case "activation":
-        if (isActivation(payload)) this.activate(zone, customer, payload, receivedAt);
+        if (isActivation(payload)) {
+          const set = payload.activation === "Setpoint";
+          this.activate(zone, customer, "v2", {
+            messageId: payload.messageId,
+            resourceId: payload.resourceId,
+            command: payload.activation,
+            v1Command: null,
+            setpointKw: set ? payload.setpoint : null,
+            endsAt: set ? payload.endsAt : null,
+            serverTimestamp: payload.serverTimestamp,
+            raw: payload,
+          }, receivedAt);
+        }
         break;
       case "acknowledgement":
-        if (isAcknowledgement(payload)) this.acknowledge(zone, customer, payload, receivedAt);
+        if (isAcknowledgement(payload)) {
+          this.acknowledge(zone, customer, "v2", {
+            messageId: payload.messageId,
+            resourceId: payload.resourceId,
+            activationId: payload.activationId,
+            sentAt: null,
+            acceptance: payload.acceptance,
+            reason: payload.reason ?? null,
+            executedAt: payload.executedAt,
+            raw: payload,
+          }, receivedAt);
+        }
         break;
     }
     this.scheduleNotify();
   }
 
-  private touch(id: string, zone: Zone, customer: string, now: number): Resource {
+  private applyV1(zone: Zone, customer: string, op: V1Op, now: number): void {
+    switch (op.kind) {
+      case "register": {
+        const r = this.touch(op.resourceId, zone, customer, "v1", now);
+        // A resource registered on both versions is described by its v2 declaration.
+        if (r.apiVersion === "v2") return;
+        r.type = op.resourceType;
+        r.subscriptionStatus = op.subscriptionStatus;
+        r.configuration = op.configuration;
+        r.marketRelationships = op.marketRelationships;
+        r.v1 = op.v1;
+        r.registeredAt = op.timestamp ?? now;
+        return;
+      }
+      case "update": {
+        const r = this.touch(op.resourceId, zone, customer, "v1", now);
+        if (r.apiVersion === "v2") return;
+        if (op.subscriptionStatus) r.subscriptionStatus = op.subscriptionStatus;
+        if (op.capability || op.schedule !== undefined) {
+          r.v1 = {
+            capability: op.capability ?? r.v1?.capability ?? [],
+            schedule: op.schedule !== undefined ? op.schedule : (r.v1?.schedule ?? null),
+          };
+        }
+        r.updatedAt = now;
+        return;
+      }
+      case "measurement":
+        this.measure(zone, customer, "v1", op, now);
+        return;
+      case "event":
+        this.event(zone, customer, "v1", { ...op, description: null }, now);
+        return;
+      case "activation":
+        this.activate(zone, customer, "v1", op, now);
+        return;
+      case "acknowledgement":
+        this.acknowledge(zone, customer, "v1", { ...op, activationId: null }, now);
+        return;
+    }
+  }
+
+  private touch(id: string, zone: Zone, customer: string, version: ApiVersion, now: number): Resource {
     let r = this.resources.get(id);
     if (!r) {
-      r = blankResource(id, zone, customer, now);
+      r = blankResource(id, zone, customer, version, now);
       this.resources.set(id, r);
     }
+    // Migration is one-way: once a resource speaks v2 it is a v2 resource.
+    if (version === "v2") r.apiVersion = "v2";
     r.lastMessageAt = now;
-    // A resource that now speaks v2 has migrated.
-    this.legacy.delete(id);
     return r;
   }
 
   private register(zone: Zone, customer: string, e: RegisterEntry, at: number, now: number): void {
-    const r = this.touch(e.resourceId, zone, customer, now);
+    const r = this.touch(e.resourceId, zone, customer, "v2", now);
     r.type = e.resourceType;
     r.subscriptionStatus = e.subscriptionStatus;
     r.maxImportKw = e.maxImportKw;
@@ -173,11 +284,12 @@ export class FleetStore {
     r.controlGranularity = e.controlGranularity;
     r.marketRelationships = e.marketRelationships ?? {};
     r.configuration = e.configuration ?? {};
+    r.v1 = null;
     r.registeredAt = at;
   }
 
   private update(zone: Zone, customer: string, m: UpdateMessage, now: number): void {
-    const r = this.touch(m.resourceId, zone, customer, now);
+    const r = this.touch(m.resourceId, zone, customer, "v2", now);
     if (m.subscriptionStatus) r.subscriptionStatus = m.subscriptionStatus;
     if (typeof m.maxImportKw === "number") r.maxImportKw = m.maxImportKw;
     if (typeof m.maxExportKw === "number") r.maxExportKw = m.maxExportKw;
@@ -188,8 +300,8 @@ export class FleetStore {
     r.updatedAt = m.timestamp ?? now;
   }
 
-  private measure(zone: Zone, customer: string, m: MeasurementMessage, now: number): void {
-    const r = this.touch(m.resourceId, zone, customer, now);
+  private measure(zone: Zone, customer: string, version: ApiVersion, m: MeasurementInput, now: number): void {
+    const r = this.touch(m.resourceId, zone, customer, version, now);
     r.metrics = {
       ...r.metrics,
       [m.measurementType]: {
@@ -209,51 +321,40 @@ export class FleetStore {
     }
   }
 
-  private event(zone: Zone, customer: string, m: EventMessage, now: number): void {
-    const r = this.touch(m.resourceId, zone, customer, now);
+  private event(zone: Zone, customer: string, version: ApiVersion, m: EventInput, now: number): void {
+    const r = this.touch(m.resourceId, zone, customer, version, now);
+    const resourceState = m.sessionOnly && r.state === "Activated" ? "Activated" : m.resourceState;
     const record: EventRecord = {
       messageId: m.messageId,
       resourceId: m.resourceId,
       zone,
       eventKind: m.eventKind,
       previousState: r.state,
-      resourceState: m.resourceState,
+      resourceState,
       severity: m.severity,
-      sessionState: m.sessionState ?? null,
-      code: m.code ?? null,
-      description: m.description ?? null,
+      sessionState: m.sessionState,
+      code: m.code,
+      description: m.description,
       resourceTimestamp: m.resourceTimestamp,
       serverTimestamp: m.serverTimestamp,
       receivedAt: now,
       lastWill: m.code === "ConnectionLost" && m.resourceTimestamp === null,
-      raw: m,
+      raw: m.raw,
     };
-    r.state = m.resourceState;
-    if (m.sessionState !== undefined) r.sessionState = m.sessionState;
+    r.state = resourceState;
+    if (m.sessionState !== null) r.sessionState = m.sessionState;
     r.lastEvent = record;
     if (m.eventKind === "Error") r.fault = record;
-    else if (m.resourceState !== "Faulted") r.fault = null;
+    else if (resourceState !== "Faulted") r.fault = null;
     this.events.unshift(record);
     if (this.events.length > LOG_LIMIT) this.events.length = LOG_LIMIT;
   }
 
-  private activate(zone: Zone, customer: string, m: ActivationMessage, now: number): void {
+  private activate(zone: Zone, customer: string, version: ApiVersion, m: ActivationInput, now: number): void {
     // QoS 1 can redeliver the same command after a reconnect.
     if (this.activationsById.has(m.messageId)) return;
-    const r = this.touch(m.resourceId, zone, customer, now);
-    const record: ActivationRecord = {
-      messageId: m.messageId,
-      resourceId: m.resourceId,
-      zone,
-      command: m.activation,
-      setpointKw: m.activation === "Setpoint" ? m.setpoint : null,
-      endsAt: m.activation === "Setpoint" ? m.endsAt : null,
-      serverTimestamp: m.serverTimestamp,
-      receivedAt: now,
-      appliedKw: null,
-      ack: null,
-      raw: m,
-    };
+    const r = this.touch(m.resourceId, zone, customer, version, now);
+    const record: ActivationRecord = { ...m, zone, receivedAt: now, appliedKw: null, ack: null };
     if (!r.command || record.serverTimestamp >= r.command.serverTimestamp) r.command = record;
     this.activationsById.set(m.messageId, record);
     this.activations.unshift(record);
@@ -263,18 +364,24 @@ export class FleetStore {
     }
   }
 
-  private acknowledge(zone: Zone, customer: string, m: AcknowledgementMessage, now: number): void {
-    this.touch(m.resourceId, zone, customer, now);
-    const a = this.activationsById.get(m.activationId);
+  /** v1 acknowledgements carry sent_at instead of an id: match the resource's command sent then. */
+  private findV1Activation(resourceId: string, sentAt: number | null): ActivationRecord | undefined {
+    const open = this.activations.filter((a) => a.resourceId === resourceId && !a.ack);
+    return (sentAt !== null ? open.find((a) => a.serverTimestamp === sentAt) : undefined) ?? open[0];
+  }
+
+  private acknowledge(zone: Zone, customer: string, version: ApiVersion, m: AckInput, now: number): void {
+    this.touch(m.resourceId, zone, customer, version, now);
+    const a = m.activationId ? this.activationsById.get(m.activationId) : this.findV1Activation(m.resourceId, m.sentAt);
     if (!a) return;
     a.ack = {
       messageId: m.messageId,
       acceptance: m.acceptance,
-      reason: m.reason ?? null,
+      reason: m.reason,
       executedAt: m.executedAt,
       latencyMs: m.executedAt === null ? null : m.executedAt - a.serverTimestamp,
       receivedAt: now,
-      raw: m,
+      raw: m.raw,
     };
   }
 
@@ -291,7 +398,6 @@ export class FleetStore {
         // Newest first by the platform's own clock; QoS 1 redelivery can reorder arrival.
         activations: [...activationCopies.values()].sort((a, b) => b.serverTimestamp - a.serverTimestamp),
         events: [...this.events].sort((a, b) => b.serverTimestamp - a.serverTimestamp),
-        legacy: [...this.legacy.values()].sort((a, b) => a.resourceId.localeCompare(b.resourceId)),
         messageCount: this.messageCount,
         lastMessageAt: this.lastMessageAt,
       };

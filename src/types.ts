@@ -1,18 +1,16 @@
 import type {
   Acceptance,
-  ActivationMessage,
-  AcknowledgementMessage,
   Configuration,
   ControlGranularity,
   EventKind,
-  EventMessage,
   MarketRelationships,
   MeasurementType,
   ResourceState,
   ResourceType,
   Severity,
 } from "./mqtt/messages";
-import type { Zone } from "./mqtt/topics";
+import type { ApiVersion, Zone } from "./mqtt/topics";
+import type { V1Declaration, V1EvActivation, V1HpActivation } from "./mqtt/v1";
 
 export type { ResourceType, ResourceState };
 
@@ -37,15 +35,18 @@ export interface AckRecord {
   /** executedAt − the activation's serverTimestamp. */
   latencyMs: number | null;
   receivedAt: number;
-  raw: AcknowledgementMessage;
+  /** The payload as received — v1 or v2 shape. */
+  raw: object;
 }
 
-/** One command on v2/activation, joined to its acknowledgement by activationId. */
+/** One command on v1 or v2 activation, joined to its acknowledgement (v2 by activationId, v1 by send time). */
 export interface ActivationRecord {
   messageId: string;
   resourceId: string;
   zone: Zone;
   command: "Setpoint" | "Release";
+  /** The v1 command name, for resources still on v1 (heat pump commands carry no magnitude). */
+  v1Command: V1EvActivation | V1HpActivation | null;
   setpointKw: number | null;
   endsAt: number | null;
   serverTimestamp: number;
@@ -53,7 +54,7 @@ export interface ActivationRecord {
   /** First measuredPower after the command — what the resource achieved. */
   appliedKw: number | null;
   ack: AckRecord | null;
-  raw: ActivationMessage;
+  raw: object;
 }
 
 export interface EventRecord {
@@ -72,14 +73,18 @@ export interface EventRecord {
   receivedAt: number;
   /** The broker published the resource's Last Will: ConnectionLost with a null resourceTimestamp. */
   lastWill: boolean;
-  raw: EventMessage;
+  raw: object;
 }
 
 export interface Resource {
   id: string;
   zone: Zone;
   customer: string;
-  /** Null until v2/register names it — a resource can speak before a late-joining console sees its registration. */
+  /** Which topic prefix it publishes on. Migration is per resource; any v2 message makes it v2. */
+  apiVersion: ApiVersion;
+  /** v1 EV declarations removed in v2 (capability tier, daily schedule). */
+  v1: V1Declaration | null;
+  /** Null until a register message names it — a resource can speak before a late-joining console sees its registration. */
   type: ResourceType | null;
   subscriptionStatus: "Subscribed" | "Unsubscribed";
   maxImportKw: number | null;
@@ -103,14 +108,6 @@ export interface Resource {
 
   lastMessageAt: number;
   lastSampleAt: number | null;
-}
-
-/** A resource still publishing on v1 topics. */
-export interface LegacyResource {
-  resourceId: string;
-  zone: Zone;
-  channel: string;
-  lastSeenAt: number;
 }
 
 export type ConnectionStatus =

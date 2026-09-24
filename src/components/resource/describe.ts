@@ -1,5 +1,5 @@
 import type { EventRecord, Resource } from "../../types";
-import { activeSetpoint, appliedKw, formatClock, formatKw, formatSigned, metric } from "../../mqtt/derive";
+import { activeSetpoint, appliedKw, commandLabel, formatClock, formatKw, formatSigned, metric } from "../../mqtt/derive";
 
 /** The quiet second line under a state badge: session, SoC, curtailment, Last Will, fault code. */
 export function stateDetail(r: Resource): string | null {
@@ -35,13 +35,15 @@ export function commandSummary(r: Resource, now: number): CommandSummary {
   }
   const c = activeSetpoint(r.command, now);
   if (c) {
-    const target = `Setpoint ${formatSigned(c.setpointKw ?? 0)}`;
     const achieved = appliedKw(c);
-    const applied = achieved !== null && Math.abs(achieved - (c.setpointKw ?? 0)) >= 0.05 ? ` → ${formatKw(achieved)}` : " kW";
+    const target = c.v1Command ? commandLabel(c) : `Setpoint ${formatSigned(c.setpointKw ?? 0)}`;
+    const applied =
+      c.v1Command ? "" : achieved !== null && Math.abs(achieved - (c.setpointKw ?? 0)) >= 0.05 ? ` → ${formatKw(achieved)}` : " kW";
     const parts = [
       r.type === "pv" ? "Curtailing" : null,
       c.endsAt !== null ? `until ${formatClock(c.endsAt)}` : null,
-      c.ack?.acceptance ?? "awaiting ack",
+      // v1 heat pumps never acknowledge.
+      r.apiVersion === "v1" && r.type === "heatPump" ? null : (c.ack?.acceptance ?? "awaiting ack"),
     ].filter(Boolean);
     return { primary: target + applied, secondary: parts.join(" · "), tone: "default" };
   }
@@ -49,9 +51,10 @@ export function commandSummary(r: Resource, now: number): CommandSummary {
   return { primary: "Own control", secondary: "—", tone: "default" };
 }
 
-/** The measurements topic a resource publishes on. */
+/** The telemetry topic a resource publishes on — v1 EV power, v1 heat pump measurement, or v2. */
 export function measurementsTopic(r: Resource): string {
-  return `${r.zone}/${r.customer}/v2/measurements/${r.id}`;
+  const channel = r.apiVersion === "v2" ? "measurements" : r.type === "heatPump" ? "measurement" : "power";
+  return `${r.zone}/${r.customer}/${r.apiVersion}/${channel}/${r.id}`;
 }
 
 /** One line for a timeline row: Last Will, fault code, partner text, session state, severity. */

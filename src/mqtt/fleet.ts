@@ -4,6 +4,7 @@ import type { ActivationMessage } from "./messages";
 import { FleetStore } from "./store";
 import { buildTopic } from "./topics";
 import { ulid } from "./ulid";
+import { v1EvActivation, v1HpActivation, type V1EvActivation, type V1HpActivation } from "./v1";
 
 /** How long a setpoint holds before the resource may revert on its own. The spec requires endsAt. */
 export const SETPOINT_HOLD_MS = 3_600_000;
@@ -55,14 +56,16 @@ export function retryConnection(): void {
   connection?.reconnect();
 }
 
-function publish(r: Resource, msg: ActivationMessage): boolean {
-  return connection?.publish(buildTopic(r.zone, r.customer, "activation", r.id), msg) ?? false;
+/** Commands go out on the version the resource speaks — a v1 resource never sees a v2 payload. */
+function publish(r: Resource, msg: object): boolean {
+  return connection?.publish(buildTopic(r.apiVersion, r.zone, r.customer, "activation", r.id), msg) ?? false;
 }
 
-/** Setpoint: an absolute, signed target on the generator convention, held until endsAt or a release. */
+/** v2 Setpoint: an absolute, signed target on the generator convention, held until endsAt or a release. */
 export function sendSetpoint(r: Resource, setpointKw: number, holdMs: number = SETPOINT_HOLD_MS): boolean {
+  if (r.apiVersion !== "v2") return false;
   const now = Date.now();
-  return publish(r, {
+  const msg: ActivationMessage = {
     messageId: ulid(now),
     resourceId: r.id,
     activation: "Setpoint",
@@ -70,13 +73,29 @@ export function sendSetpoint(r: Resource, setpointKw: number, holdMs: number = S
     unit: "kW",
     endsAt: now + holdMs,
     serverTimestamp: now,
-  });
+  };
+  return publish(r, msg);
 }
 
 /** Release returns the resource to its own control logic. It is not a setpoint of 0. */
 export function sendRelease(r: Resource): boolean {
+  if (r.apiVersion !== "v2") return false;
   const now = Date.now();
-  return publish(r, { messageId: ulid(now), resourceId: r.id, activation: "Release", serverTimestamp: now });
+  const msg: ActivationMessage = { messageId: ulid(now), resourceId: r.id, activation: "Release", serverTimestamp: now };
+  return publish(r, msg);
+}
+
+/** v1 EV charger: SetPowerLimit caps consumption at a positive kW; ClearPowerLimit lifts it. */
+export function sendV1EvActivation(r: Resource, activation: V1EvActivation, limitKw?: number): boolean {
+  if (r.apiVersion !== "v1") return false;
+  const now = Date.now();
+  return publish(r, v1EvActivation(r.id, activation, ulid(now), now, SETPOINT_HOLD_MS, limitKw));
+}
+
+/** v1 heat pump: directional, no magnitude. Up sheds consumption, Down engages the backup heater. */
+export function sendV1HpActivation(r: Resource, activation: V1HpActivation): boolean {
+  if (r.apiVersion !== "v1") return false;
+  return publish(r, v1HpActivation(activation, Date.now(), SETPOINT_HOLD_MS));
 }
 
 /** The payload a Release would carry, for the confirmation dialog preview. */

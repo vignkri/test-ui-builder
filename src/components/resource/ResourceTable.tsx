@@ -1,6 +1,6 @@
 import type { Resource } from "../../types";
 import { fmtNum, formatKw, freshnessOf, metric, setpointRange, stateTone } from "../../mqtt/derive";
-import { Badge, StatusBadge, TypeBadge } from "../ui/Badge";
+import { Badge, StatusBadge, TypeBadge, VersionBadge } from "../ui/Badge";
 import { PowerBar } from "../ui/DataDisplay";
 import { commandSummary, stateDetail } from "./describe";
 import "../ui/Table.css";
@@ -95,7 +95,10 @@ function ResourceRow({
       <td>
         <div className="cell-stack">
           <span className="cell-mono">{r.id}</span>
-          {r.type ? <TypeBadge type={r.type} /> : <Badge variant="outline">unregistered</Badge>}
+          <span className="cell-badges">
+            {r.type ? <TypeBadge type={r.type} /> : <Badge variant="outline">unregistered</Badge>}
+            {r.apiVersion === "v1" && <VersionBadge version="v1" />}
+          </span>
         </div>
       </td>
       <td>
@@ -106,7 +109,8 @@ function ResourceRow({
       </td>
       <td className="cell-power">
         <p className="cell-primary">{lastKnown || power === null ? "—" : formatKw(power)}</p>
-        <PowerBar value={lastKnown ? null : power} max={range ? Math.max(-range[0], range[1]) : 1} />
+        {/* No declared range (v1) means no scale to draw against. */}
+        {range && <PowerBar value={lastKnown ? null : power} max={Math.max(-range[0], range[1])} />}
         {range && (
           <p className="cell-range">
             range {fmtNum(range[0])} … +{fmtNum(range[1])} kW
@@ -142,10 +146,13 @@ export function ResourceCards({ resources, onSelect, now }: { resources: Resourc
               {tone && <StatusBadge status={tone} />}
             </span>
             <span className="resource-card-row">
-              {r.type ? <TypeBadge type={r.type} showCode={false} /> : <span />}
+              <span className="cell-badges">
+                {r.type && <TypeBadge type={r.type} showCode={false} />}
+                {r.apiVersion === "v1" && <VersionBadge version="v1" />}
+              </span>
               <span className="resource-card-power">{lastKnown || power === null ? "—" : formatKw(power)}</span>
             </span>
-            <PowerBar value={lastKnown ? null : power} max={range ? Math.max(-range[0], range[1]) : 1} />
+            {range && <PowerBar value={lastKnown ? null : power} max={Math.max(-range[0], range[1])} />}
             <span className="resource-card-row resource-card-foot">
               <span className="mono">
                 ↑ {fmtNum(metric(r, "availablePowerUp") ?? 0)} ↓ {fmtNum(metric(r, "availablePowerDown") ?? 0)}

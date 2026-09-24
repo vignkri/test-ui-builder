@@ -1,6 +1,6 @@
 import type { ActivationRecord, Freshness, Resource, ResourceState, ResourceType, StatusTone } from "../types";
 import type { Acceptance, ControlGranularity, MeasurementType } from "./messages";
-import type { Zone } from "./topics";
+import type { ApiVersion, Zone } from "./topics";
 
 export const TYPE_LABEL: Record<ResourceType, string> = {
   evCharger: "EV charger",
@@ -14,8 +14,12 @@ export const TYPE_LABEL: Record<ResourceType, string> = {
 
 export const TYPE_ORDER: ResourceType[] = ["evCharger", "heatPump", "bess", "chp", "p2x", "pv", "misc"];
 
-/** Every type publishes the three power metrics; batteries add three state metrics. */
-export function expectedMetrics(type: ResourceType | null): MeasurementType[] {
+/**
+ * v2: every type publishes the three power metrics; batteries add three state metrics.
+ * v1: EV chargers publish power only; heat pumps publish headroom only (no measured power).
+ */
+export function expectedMetrics(type: ResourceType | null, version: ApiVersion = "v2"): MeasurementType[] {
+  if (version === "v1") return type === "heatPump" ? ["availablePowerUp", "availablePowerDown"] : ["measuredPower"];
   const power: MeasurementType[] = ["measuredPower", "availablePowerUp", "availablePowerDown"];
   return type === "bess" ? [...power, "stateOfCharge", "availableEnergyUp", "availableEnergyDown"] : power;
 }
@@ -79,7 +83,7 @@ export function freshnessOf(r: Resource, live: boolean, now: number = Date.now()
 /** The expected metric that has gone quiet longest, for the Overview's attention list. */
 export function oldestGap(r: Resource, now: number): { metric: MeasurementType; ageMs: number } | null {
   let worst: { metric: MeasurementType; ageMs: number } | null = null;
-  for (const m of expectedMetrics(r.type)) {
+  for (const m of expectedMetrics(r.type, r.apiVersion)) {
     const s = r.metrics[m];
     const age = s ? now - s.receivedAt : Infinity;
     if (age > STALE_AFTER_MS && (!worst || age > worst.ageMs)) worst = { metric: m, ageMs: age };
@@ -150,6 +154,16 @@ export function activeSetpoint(c: ActivationRecord | null, now: number = Date.no
   const holding =
     !!c && c.command === "Setpoint" && (c.endsAt === null || c.endsAt > now) && (!c.ack || c.ack.acceptance === "Accepted");
   return holding ? c : null;
+}
+
+/**
+ * How a command reads in the log: v2 "Setpoint −3.7 kW" / "Release"; v1 keeps its own names —
+ * "SetPowerLimit 3.7 kW", "ClearPowerLimit", or a heat pump's magnitude-less "ActivationUp".
+ */
+export function commandLabel(a: ActivationRecord): string {
+  if (a.v1Command === "SetPowerLimit") return `SetPowerLimit ${fmtNum(-(a.setpointKw ?? 0))} kW`;
+  if (a.v1Command) return a.v1Command;
+  return a.command === "Setpoint" ? `Setpoint ${formatKw(a.setpointKw)}` : "Release";
 }
 
 /** What the resource achieved — only meaningful once it accepted the command. */

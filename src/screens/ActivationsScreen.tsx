@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { ActivationRecord } from "../types";
-import { ACK_BOUND_MS, acceptanceTone, appliedKw, formatClock, formatDuration, formatKw, formatSigned, overBound } from "../mqtt/derive";
-import { CommandBadge, StatusBadge } from "../components/ui/Badge";
+import { ACK_BOUND_MS, acceptanceTone, appliedKw, fmtNum, formatClock, formatDuration, formatKw, formatSigned, overBound } from "../mqtt/derive";
+import { CommandBadge, StatusBadge, VersionBadge } from "../components/ui/Badge";
 import { Card, KpiCard } from "../components/ui/Card";
 import { CodeBlock } from "../components/ui/DataDisplay";
 import { Alert } from "../components/ui/Feedback";
@@ -104,13 +104,18 @@ export function ActivationsScreen({ snapshot, selectedId, navigate, isMobile }: 
                       <td className="cell-time">{formatClock(a.serverTimestamp, "ms")}</td>
                       <td className="cell-mono">{a.resourceId}</td>
                       <td>
-                        <CommandBadge command={a.command} />
+                        <div className="cell-stack">
+                          <CommandBadge command={a.command} />
+                          {a.v1Command && <span className="cell-secondary mono-code">{a.v1Command}</span>}
+                        </div>
                       </td>
                       <td>
-                        <p className="cell-primary">{a.command === "Setpoint" ? formatKw(a.setpointKw) : "—"}</p>
+                        <p className="cell-primary">{target(a)}</p>
                         <p className="cell-secondary">
                           {a.command === "Release"
                             ? "back to own control"
+                            : a.v1Command === "ActivationUp" || a.v1Command === "ActivationDown"
+                              ? "v1 · direction only, no magnitude"
                             : applied === null
                               ? ""
                               : `applied ${formatSigned(applied)}${stepped && Math.abs(applied - (a.setpointKw ?? 0)) >= 0.05 ? " · nearest step" : ""}`}
@@ -137,7 +142,7 @@ export function ActivationsScreen({ snapshot, selectedId, navigate, isMobile }: 
                 {visible.length === 0 && (
                   <tr>
                     <td className="cell-empty" colSpan={7}>
-                      No commands on v2/activation match this filter.
+                      No commands on v1 or v2 activation match this filter.
                     </td>
                   </tr>
                 )}
@@ -151,12 +156,30 @@ export function ActivationsScreen({ snapshot, selectedId, navigate, isMobile }: 
   );
 }
 
+/** v1 heat pump commands — the only activations the API never acknowledges. */
+function isV1HeatPump(a: ActivationRecord): boolean {
+  return a.v1Command === "ActivationUp" || a.v1Command === "ActivationDown" || a.v1Command === "Release";
+}
+
+/** The commanded value: a signed v2 setpoint, a v1 power cap, or a v1 heat pump direction. */
+function target(a: ActivationRecord): string {
+  if (a.command === "Release") return "—";
+  if (a.v1Command === "SetPowerLimit") return `≤ ${fmtNum(-(a.setpointKw ?? 0))} kW`;
+  if (a.v1Command === "ActivationUp") return "↑ up";
+  if (a.v1Command === "ActivationDown") return "↓ down";
+  return formatKw(a.setpointKw);
+}
+
 function ActivationDetail({ a }: { a: ActivationRecord }) {
   const latency = a.ack?.latencyMs ?? null;
+  const version = a.v1Command ? "v1" : "v2";
   return (
     <aside className="detail-panel">
       <div className="detail-header-row">
-        <CommandBadge command={a.command} />
+        <span className="cell-badges">
+          <CommandBadge command={a.command} />
+          {version === "v1" && <VersionBadge version="v1" />}
+        </span>
         {a.ack && <StatusBadge status={acceptanceTone(a.ack.acceptance)}>{a.ack.acceptance}</StatusBadge>}
       </div>
       <h2 className="detail-id">{a.resourceId}</h2>
@@ -171,9 +194,11 @@ function ActivationDetail({ a }: { a: ActivationRecord }) {
         />
         {a.endsAt && <Timing field="endsAt" meaning="Obligation ends — resource may revert" value={formatClock(a.endsAt, "ms")} />}
       </div>
-      <CodeBlock topic={`← v2/activation/${a.resourceId}`} code={a.raw} />
+      <CodeBlock topic={`← ${version}/activation/${a.resourceId}`} code={a.raw} />
       {a.ack ? (
-        <CodeBlock topic={`→ v2/acknowledgement/${a.resourceId}`} code={a.ack.raw} />
+        <CodeBlock topic={`→ ${version}/acknowledgement/${a.resourceId}`} code={a.ack.raw} />
+      ) : isV1HeatPump(a) ? (
+        <p className="detail-note">v1 heat pumps send no acknowledgement — on v2 every activation is acknowledged.</p>
       ) : (
         <p className="detail-note">No acknowledgement yet. Every activation is acknowledged, for every resource type.</p>
       )}

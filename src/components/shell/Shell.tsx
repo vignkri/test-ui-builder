@@ -53,7 +53,7 @@ export function AppSidebar({
         </span>
         <div className="app-brand-text">
           <p className="app-brand-name">gridhub</p>
-          <p className="app-brand-sub">DER console · v2</p>
+          <p className="app-brand-sub">DER · v1 + v2</p>
         </div>
         <Button
           variant="ghost"

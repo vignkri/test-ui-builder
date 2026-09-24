@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ChevronLeft, Power, Zap } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, Power, Zap } from "lucide-react";
 import type { EventRecord, Resource } from "../../types";
 import { SESSION_STATES, type MeasurementType } from "../../mqtt/messages";
 import {
@@ -15,6 +15,7 @@ import {
   granularityDetail,
   activeSetpoint,
   appliedKw,
+  commandLabel,
   metric,
   nearestReachable,
   rangeLabel,
@@ -22,8 +23,8 @@ import {
   stateTone,
   acceptanceTone,
 } from "../../mqtt/derive";
-import { sendSetpoint } from "../../mqtt/fleet";
-import { Badge, StatusBadge, TypeBadge } from "../ui/Badge";
+import { sendSetpoint, sendV1EvActivation, sendV1HpActivation } from "../../mqtt/fleet";
+import { Badge, StatusBadge, TypeBadge, VersionBadge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { MetricTile } from "../ui/Card";
 import { EnvelopeTrack, KeyValue, TimelineItem } from "../ui/DataDisplay";
@@ -55,7 +56,10 @@ export function ResourceDetail({ resource: r, events, now, live, onBack }: Props
       )}
       <header className="detail-header">
         <div className="detail-header-row">
-          {r.type ? <TypeBadge type={r.type} /> : <Badge variant="outline">unregistered</Badge>}
+          <span className="cell-badges">
+            {r.type ? <TypeBadge type={r.type} /> : <Badge variant="outline">unregistered</Badge>}
+            {r.apiVersion === "v1" && <VersionBadge version="v1" />}
+          </span>
           {tone && <StatusBadge status={tone} />}
         </div>
         <h2 className="detail-id">{r.id}</h2>
@@ -147,6 +151,18 @@ function SampleBox({ resource: r, now, live }: { resource: Resource; now: number
 function EnvelopeSection({ resource: r }: { resource: Resource }) {
   const range = setpointRange(r);
   const g = r.controlGranularity;
+  if (r.apiVersion === "v1") {
+    return (
+      <Section title="Dispatch envelope" aside="v1">
+        <p className="detail-note">
+          {r.type === "heatPump"
+            ? "v1 heat pumps declare rated compressor and heater power, but no envelope or granularity: the platform commands a direction, not a setpoint."
+            : "v1 EV chargers declare no rated-power envelope: the platform caps consumption with SetPowerLimit instead of commanding a setpoint."}{" "}
+          The envelope arrives when the resource registers on v2.
+        </p>
+      </Section>
+    );
+  }
   if (!range || !g) {
     return (
       <Section title="Dispatch envelope">
@@ -187,7 +203,7 @@ function EnvelopeSection({ resource: r }: { resource: Resource }) {
 }
 
 function MetricsSection({ resource: r, now, live }: { resource: Resource; now: number; live: boolean }) {
-  const expected = expectedMetrics(r.type);
+  const expected = expectedMetrics(r.type, r.apiVersion);
   const have = expected.filter((m) => r.metrics[m]).length;
   const lastKnown = r.state === "Unavailable" || freshnessOf(r, live, now) !== "live";
   const soc = metric(r, "stateOfCharge");
@@ -197,7 +213,10 @@ function MetricsSection({ resource: r, now, live }: { resource: Resource; now: n
       title="Live metrics"
       aside={lastKnown && r.lastSampleAt !== null ? `last known · ${formatClock(r.lastSampleAt)}` : `${have} of ${expected.length}${r.type === "bess" ? " · bess" : ""}`}
     >
-      <div className={`detail-metrics ${expected.length > 3 ? "detail-metrics-2" : ""}`}>
+      <div
+        className={`detail-metrics ${expected.length > 3 ? "detail-metrics-2" : ""}`}
+        style={expected.length < 3 ? { gridTemplateColumns: `repeat(${expected.length}, minmax(0, 1fr))` } : undefined}
+      >
         {expected.map((m: MeasurementType) => {
           const v = metric(r, m);
           return (
@@ -288,13 +307,28 @@ function TypeSection({ resource: r }: { resource: Resource }) {
       const down = metric(r, "availablePowerDown");
       return (
         <Section title="Stages">
-          <Stage label="Compressor" detail={`running ${fmtNum(compressorRun)} of ${fmtNum(compressor)} kW`} value={compressor ? (compressorRun / compressor) * 100 : 0} />
+          <Stage
+            label="Compressor"
+            detail={p === null ? `${fmtNum(compressor)} kW rated` : `running ${fmtNum(compressorRun)} of ${fmtNum(compressor)} kW`}
+            value={compressor ? (compressorRun / compressor) * 100 : 0}
+          />
           <Stage
             label="Backup heater"
-            detail={heaterRun > 0 ? `running ${fmtNum(heaterRun)} of ${fmtNum(heater)} kW` : `off · ${fmtNum(heater)} kW rated`}
+            detail={
+              p === null ? `${fmtNum(heater)} kW rated` : heaterRun > 0 ? `running ${fmtNum(heaterRun)} of ${fmtNum(heater)} kW` : `off · ${fmtNum(heater)} kW rated`
+            }
             value={heater ? (heaterRun / heater) * 100 : 0}
           />
-          {down !== null && (
+          {down !== null && r.apiVersion === "v1" && (
+            <div className="detail-box detail-box-muted">
+              <p className="detail-box-title">availableDownKw = backup heater alone</p>
+              <p>
+                v1 reports only the heater. On v2 availablePowerDown adds the compressor headroom (migration hazard 2), so expect
+                it to rise after migration. v1 heat pumps publish no measured power, so the stages above can't show a running level.
+              </p>
+            </div>
+          )}
+          {down !== null && r.apiVersion === "v2" && (
             <div className="detail-box detail-box-aqua">
               <p className="detail-box-title">
                 availablePowerDown = {fmtNum(Math.max(0, compressor - compressorRun))} + {fmtNum(Math.max(0, heater - heaterRun))} kW
@@ -379,7 +413,7 @@ function CommandSection({ resource: r, now, live }: { resource: Resource; now: n
         <p className="detail-command-title">Not dispatchable</p>
         <p>
           {last
-            ? `Last setpoint ${formatSigned(last.setpointKw ?? 0)} at ${formatClock(last.serverTimestamp)}${last.ack ? ` → ${last.ack.acceptance}` : ""}${last.ack?.reason ? ` · “${last.ack.reason}”` : ""}`
+            ? `Last ${last.v1Command ? commandLabel(last) : `setpoint ${formatSigned(last.setpointKw ?? 0)}`} at ${formatClock(last.serverTimestamp)}${last.ack ? ` → ${last.ack.acceptance}` : ""}${last.ack?.reason ? ` · “${last.ack.reason}”` : ""}`
             : "No command in this session."}
         </p>
       </div>
@@ -389,8 +423,10 @@ function CommandSection({ resource: r, now, live }: { resource: Resource; now: n
     card = (
       <div className="detail-command detail-command-active">
         <div className="detail-command-row">
-          <p className="detail-command-title">Setpoint</p>
-          <p className="detail-command-value">{formatKw(c.setpointKw)}</p>
+          <p className="detail-command-title">{c.v1Command ?? "Setpoint"}</p>
+          <p className="detail-command-value">
+            {c.v1Command === "SetPowerLimit" ? `≤ ${fmtNum(-(c.setpointKw ?? 0))} kW` : c.v1Command ? (c.v1Command === "ActivationUp" ? "↑ up" : "↓ down") : formatKw(c.setpointKw)}
+          </p>
         </div>
         <p className="mono detail-command-meta">
           endsAt {formatClock(c.endsAt)} · sent {formatClock(c.serverTimestamp, "ms")}
@@ -404,6 +440,8 @@ function CommandSection({ resource: r, now, live }: { resource: Resource; now: n
                 acknowledged in {formatDuration(c.ack.latencyMs)}
               </span>
             </>
+          ) : r.apiVersion === "v1" && r.type === "heatPump" ? (
+            <span>v1 heat pumps send no acknowledgement</span>
           ) : (
             <span>awaiting acknowledgement</span>
           )}
@@ -423,7 +461,8 @@ function CommandSection({ resource: r, now, live }: { resource: Resource; now: n
   return (
     <Section title={held ? "Active command" : "Command"}>
       {card}
-      {dispatchable && range && (
+      {dispatchable && r.apiVersion === "v1" && <V1Controls resource={r} live={live} />}
+      {dispatchable && r.apiVersion === "v2" && range && (
         <div className="detail-controls">
           <div className="detail-setpoint">
             <Input
@@ -461,6 +500,66 @@ function CommandSection({ resource: r, now, live }: { resource: Resource; now: n
       )}
       {releasing && <ReleaseDialog resource={r} onClose={() => setReleasing(false)} />}
     </Section>
+  );
+}
+
+/** v1 commands, in v1's own vocabulary: an EV power cap, or a heat pump direction. */
+function V1Controls({ resource: r, live }: { resource: Resource; live: boolean }) {
+  const [draft, setDraft] = useState("");
+  const limit = parseFloat(draft);
+  const invalid = draft !== "" && (Number.isNaN(limit) || limit < 0);
+
+  if (r.type === "heatPump") {
+    return (
+      <div className="detail-controls">
+        <div className="detail-actions">
+          <Button variant="outline" icon={<Power />} disabled={!live} onClick={() => sendV1HpActivation(r, "Release")}>
+            Release
+          </Button>
+          <Button variant="secondary" icon={<ArrowDown />} disabled={!live} onClick={() => sendV1HpActivation(r, "ActivationDown")}>
+            Down
+          </Button>
+          <Button icon={<ArrowUp />} disabled={!live} onClick={() => sendV1HpActivation(r, "ActivationUp")}>
+            Up
+          </Button>
+        </div>
+        <p className="detail-note">
+          v1 commands carry no magnitude. Up sheds consumption; Down engages the backup heater. Sent on v1/activation.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="detail-controls">
+      <div className="detail-setpoint">
+        <Input
+          type="number"
+          step={0.1}
+          min={0}
+          placeholder="Power limit kW"
+          aria-label="Power limit in kW"
+          className={invalid ? "input-invalid" : ""}
+          value={draft}
+          disabled={!live}
+          onChange={(e) => setDraft(e.target.value)}
+        />
+        <Button
+          icon={<Zap />}
+          disabled={!live || draft === "" || invalid}
+          onClick={() => {
+            if (sendV1EvActivation(r, "SetPowerLimit", limit)) setDraft("");
+          }}
+        >
+          SetPowerLimit
+        </Button>
+      </div>
+      <div className="detail-release">
+        <Button variant="outline" icon={<Power />} disabled={!live} onClick={() => sendV1EvActivation(r, "ClearPowerLimit")}>
+          ClearPowerLimit
+        </Button>
+        <p className="detail-note">v1 caps consumption with a positive kW limit. Sent on v1/activation.</p>
+      </div>
+    </div>
   );
 }
 

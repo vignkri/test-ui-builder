@@ -5,7 +5,6 @@ import {
   TYPE_LABEL,
   TYPE_ORDER,
   fmtNum,
-  formatAgo,
   granularityDetail,
   granularityLabel,
   rangeLabel,
@@ -32,17 +31,24 @@ const HAZARDS: { n: number; text: string; status: "handled" | "check" }[] = [
   { n: 9, text: "Bulk, schedules, markets, heartbeat removed", status: "handled" },
 ];
 
-export function RegistrationScreen({ snapshot, selectedId, navigate, now }: ScreenProps) {
-  const { resources, legacy } = snapshot;
+/** v1 channel a resource's telemetry arrives on, for the "still on v1" list. */
+function v1Channel(r: Resource): string {
+  return r.type === "heatPump" ? "v1/measurement" : "v1/power";
+}
+
+export function RegistrationScreen({ snapshot, selectedId, navigate }: ScreenProps) {
+  const { resources } = snapshot;
   const registered = resources.filter((r) => r.type !== null);
+  const onV2 = registered.filter((r) => r.apiVersion === "v2");
+  const onV1 = registered.filter((r) => r.apiVersion === "v1");
   const selected = registered.find((r) => r.id === selectedId) ?? registered[0] ?? null;
 
   return (
     <>
       <div className="screen-split screen-split-left">
-        <Card title="Registry" action={<span className="card-meta">{registered.length} on v2 · {legacy.length} on v1</span>}>
+        <Card title="Registry" action={<span className="card-meta">{onV2.length} on v2 · {onV1.length} on v1</span>}>
           <div className="registry">
-            {registered.map((r) => (
+            {onV2.map((r) => (
               <button
                 key={r.id}
                 type="button"
@@ -59,17 +65,22 @@ export function RegistrationScreen({ snapshot, selectedId, navigate, now }: Scre
                 <VersionBadge version="v2" />
               </button>
             ))}
-            {registered.length === 0 && <p className="card-note registry-empty">Nothing has published to v2/register yet.</p>}
-            {legacy.length > 0 && (
+            {registered.length === 0 && <p className="card-note registry-empty">Nothing has registered on v1 or v2 yet.</p>}
+            {onV1.length > 0 && (
               <div className="registry-legacy">
                 <p className="registry-legacy-title">Still on v1 topics</p>
-                {legacy.map((l) => (
-                  <div key={l.resourceId} className="registry-legacy-row" title={`last seen ${formatAgo(l.lastSeenAt, now)} ago`}>
+                {onV1.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    className={`registry-legacy-row ${r.id === selected?.id ? "registry-legacy-row-on" : ""}`}
+                    onClick={() => navigate("registration", r.id)}
+                  >
                     <span className="mono-code">
-                      {l.resourceId} · {l.channel}
+                      {r.id} · {v1Channel(r)}
                     </span>
                     <VersionBadge version="v1" />
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -80,7 +91,7 @@ export function RegistrationScreen({ snapshot, selectedId, navigate, now }: Scre
 
       <div className="screen-split screen-split-wide">
         <GranularityCard resources={registered} />
-        <Card title="v1 → v2 migration" action={<span className="card-meta">{legacy.length} resources · per-resource</span>}>
+        <Card title="v1 → v2 migration" action={<span className="card-meta">{onV1.length} still on v1 · per-resource</span>}>
           <div className="card-body">
             <Alert
               variant="destructive"
@@ -97,8 +108,8 @@ export function RegistrationScreen({ snapshot, selectedId, navigate, now }: Scre
               ))}
             </ol>
             <p className="card-note">
-              "handled" — the console reads the v2 shape as specified. "check" — the value is the partner's to compute; the console
-              displays it as published.
+              "handled" — the console reads both versions and translates v1 as the guide specifies. "check" — the value is the
+              partner's to compute; the console displays it as published.
             </p>
           </div>
         </Card>
@@ -108,7 +119,6 @@ export function RegistrationScreen({ snapshot, selectedId, navigate, now }: Scre
 }
 
 function Declaration({ r }: { r: Resource }) {
-  const range = setpointRange(r);
   const brp = r.marketRelationships.balanceResponsibleParty;
   const retailer = r.marketRelationships.retailer;
   return (
@@ -117,38 +127,14 @@ function Declaration({ r }: { r: Resource }) {
         <span className="card-title-inline declaration-title">
           <span className="mono-code">{r.id}</span>
           <TypeBadge type={r.type!} />
+          <VersionBadge version={r.apiVersion} />
         </span>
       }
       action={<StatusBadge status={r.subscriptionStatus === "Subscribed" ? "available" : "unavailable"}>{r.subscriptionStatus}</StatusBadge>}
     >
       <div className="declaration">
         <div className="declaration-col">
-          <p className="detail-overline">Envelope</p>
-          <div className="detail-kv">
-            <KeyValue name="resourceId">{r.id} · immutable</KeyValue>
-            <KeyValue name="resourceType">{r.type} · immutable</KeyValue>
-            <KeyValue name="maxImportKw">{fmtNum(r.maxImportKw ?? 0)} kW</KeyValue>
-            <KeyValue name="maxExportKw">{fmtNum(r.maxExportKw ?? 0)} kW</KeyValue>
-            <KeyValue name="controlGranularity">
-              {r.controlGranularity?.mode ?? "—"} · {granularityDetail(r.controlGranularity)}
-            </KeyValue>
-          </div>
-          {range && (
-            <>
-              <EnvelopeTrack
-                minKw={range[0]}
-                maxKw={range[1]}
-                measuredKw={null}
-                setpointKw={null}
-                stepsKw={r.controlGranularity?.mode === "Steps" ? r.controlGranularity.stepsKw : undefined}
-              />
-              <div className="detail-range-labels">
-                <span className="detail-range-import">{range[0] < 0 ? `import · ${fmtNum(range[0])} kW` : "import — none"}</span>
-                <span className="mono-code">{rangeLabel(r)}</span>
-                <span className="detail-range-export">{range[1] > 0 ? `export · +${fmtNum(range[1])} kW` : "export — none"}</span>
-              </div>
-            </>
-          )}
+          {r.apiVersion === "v1" ? <V1Declaration r={r} /> : <V2Envelope r={r} />}
           <p className="detail-overline">Market relationships</p>
           <div className="detail-kv">
             <KeyValue name="balanceResponsibleParty">{brp ? `${brp.code} · ${brp.encoding}` : "—"}</KeyValue>
@@ -162,6 +148,69 @@ function Declaration({ r }: { r: Resource }) {
         </div>
       </div>
     </Card>
+  );
+}
+
+/** The v2 envelope: rated range, granularity and the reachable setpoints on a track. */
+function V2Envelope({ r }: { r: Resource }) {
+  const range = setpointRange(r);
+  return (
+    <>
+      <p className="detail-overline">Envelope</p>
+      <div className="detail-kv">
+        <KeyValue name="resourceId">{r.id} · immutable</KeyValue>
+        <KeyValue name="resourceType">{r.type} · immutable</KeyValue>
+        <KeyValue name="maxImportKw">{fmtNum(r.maxImportKw ?? 0)} kW</KeyValue>
+        <KeyValue name="maxExportKw">{fmtNum(r.maxExportKw ?? 0)} kW</KeyValue>
+        <KeyValue name="controlGranularity">
+          {r.controlGranularity?.mode ?? "—"} · {granularityDetail(r.controlGranularity)}
+        </KeyValue>
+      </div>
+      {range && (
+        <>
+          <EnvelopeTrack
+            minKw={range[0]}
+            maxKw={range[1]}
+            measuredKw={null}
+            setpointKw={null}
+            stepsKw={r.controlGranularity?.mode === "Steps" ? r.controlGranularity.stepsKw : undefined}
+          />
+          <div className="detail-range-labels">
+            <span className="detail-range-import">{range[0] < 0 ? `import · ${fmtNum(range[0])} kW` : "import — none"}</span>
+            <span className="mono-code">{rangeLabel(r)}</span>
+            <span className="detail-range-export">{range[1] > 0 ? `export · +${fmtNum(range[1])} kW` : "export — none"}</span>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+/** What a v1 registration declares — and what it will need to add on v2. */
+function V1Declaration({ r }: { r: Resource }) {
+  return (
+    <>
+      <p className="detail-overline">v1 registration</p>
+      <div className="detail-kv">
+        <KeyValue name="resourceId">{r.id}</KeyValue>
+        <KeyValue name="topic">{r.type === "heatPump" ? "v1/register · payload[]" : "v1/register · snake_case"}</KeyValue>
+        {r.type === "evCharger" && (
+          <>
+            <KeyValue name="capability">{r.v1?.capability.length ? r.v1.capability.join(", ") : "—"}</KeyValue>
+            <KeyValue name="schedule">{r.v1?.schedule ? `${r.v1.schedule.starts_at} – ${r.v1.schedule.ends_at}` : "—"}</KeyValue>
+          </>
+        )}
+      </div>
+      <Alert
+        variant="secondary"
+        title="No envelope yet"
+        description={
+          r.type === "heatPump"
+            ? "On v2 this heat pump declares maxImportKw, maxExportKw 0 and a Steps granularity for its compressor and heater stages, and starts publishing measuredPower."
+            : "On v2 this charger declares maxImportKw, maxExportKw 0 and controlGranularity — Steps for AC, Continuous for DC. capability stays; schedule is removed."
+        }
+      />
+    </>
   );
 }
 

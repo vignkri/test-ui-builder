@@ -20,10 +20,10 @@ import "./App.css";
 const SUBTITLE: Record<Screen, string> = {
   overview: "Flexibility your resources offer right now, by type and direction.",
   resources: "Live state for every resource on your namespace — one message set for every type.",
-  activations: "Commands sent on v2/activation, what each resource applied, and how it answered.",
-  events: "Every change a resource reports on v2/events — state transitions, faults, and dropped connections.",
+  activations: "Commands sent on v1 and v2 activation, what each resource applied, and how it answered.",
+  events: "Every change a resource reports — state transitions, faults, and dropped connections — on v1 or v2.",
   acknowledgements: "Every activation is answered. The acknowledgement separates a refusal to act from a lost link — power values alone can't.",
-  registration: "What each resource declared on v2/register and v2/update — its envelope, granularity and configuration.",
+  registration: "What each resource declared on register and update — v2 envelope and configuration, or its v1 declaration.",
 };
 
 const CHANNEL: Record<Screen, string> = {
@@ -42,7 +42,6 @@ function byZone(s: FleetSnapshot, zone: ZoneFilter): FleetSnapshot {
     resources: s.resources.filter((r) => r.zone === zone),
     activations: s.activations.filter((a) => a.zone === zone),
     events: s.events.filter((e) => e.zone === zone),
-    legacy: s.legacy.filter((l) => l.zone === zone),
   };
 }
 
@@ -63,7 +62,10 @@ function App() {
     resources: snapshot.resources.length,
     activations: snapshot.resources.filter((r) => activeSetpoint(r.command, now)).length,
   };
-  const empty = live && snapshot.resources.length === 0 && snapshot.legacy.length === 0;
+  const empty = live && snapshot.resources.length === 0;
+  // Both versions are subscribed; the breadcrumb names the ones actually in use.
+  const hasV1 = snapshot.resources.some((r) => r.apiVersion === "v1");
+  const versionLabel = hasV1 ? "{v1|v2}" : "v2";
   const props = { snapshot, now, live, isMobile, selectedId: route.id, navigate };
 
   const actions =
@@ -90,7 +92,7 @@ function App() {
       <AppSidebar active={screen} counts={counts} status={status} theme={theme} onToggleTheme={toggleTheme} />
       <main className="app-main">
         <PageHeader
-          breadcrumb={`${zoneLabel(zone)} / ${CUSTOMER} / v2${CHANNEL[screen]}`}
+          breadcrumb={`${zoneLabel(zone)} / ${CUSTOMER} / ${versionLabel}${CHANNEL[screen]}`}
           title={screen === "resources" ? "Distributed resources" : screen === "overview" ? "Fleet overview" : SCREEN_LABEL[screen]}
           subtitle={SUBTITLE[screen]}
           zone={zone}

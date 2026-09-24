@@ -36,3 +36,37 @@ export function Progress({ value, tone = "default" }: { value: number; tone?: "d
     </div>
   );
 }
+
+/** shadcn/ui DialogContent — modal with a title, description, body and footer actions. */
+export function Dialog({
+  title,
+  description,
+  children,
+  footer,
+  onClose,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  children?: ReactNode;
+  footer: ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="dialog-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div
+        className="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dialog-title"
+        onKeyDown={(e) => e.key === "Escape" && onClose()}
+      >
+        <h2 id="dialog-title" className="dialog-title">
+          {title}
+        </h2>
+        {description && <p className="dialog-description">{description}</p>}
+        {children}
+        <div className="dialog-footer">{footer}</div>
+      </div>
+    </div>
+  );
+}

@@ -165,3 +165,118 @@
   white-space: nowrap;
   text-align: right;
 }
+
+.envelope-track {
+  position: relative;
+  height: 40px;
+  width: 100%;
+}
+
+.envelope-zone,
+.envelope-measured {
+  position: absolute;
+  top: 18px;
+  height: 14px;
+}
+
+.envelope-zone-import {
+  background: var(--secondary);
+  border-radius: 7px 0 0 7px;
+}
+
+.envelope-zone-export {
+  background: var(--accent);
+  border-radius: 0 7px 7px 0;
+}
+
+/* A one-directional range: its single zone rounds both ends. */
+.envelope-zone-whole {
+  border-radius: 7px;
+}
+
+.envelope-measured-import {
+  background: var(--flow-import);
+}
+
+.envelope-measured-export {
+  background: var(--flow-export);
+}
+
+.envelope-step {
+  position: absolute;
+  top: 21px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: var(--radius-full);
+  background: var(--card);
+  border: 1.5px solid var(--muted-foreground);
+}
+
+.envelope-zero {
+  position: absolute;
+  top: 13px;
+  width: 1.5px;
+  height: 24px;
+  margin-left: -0.75px;
+  background: var(--muted-foreground);
+}
+
+.envelope-setpoint {
+  position: absolute;
+  top: 11px;
+  width: 3px;
+  height: 28px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--chart-5);
+}
+
+.envelope-setpoint-label {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--secondary-foreground);
+  white-space: nowrap;
+}
+
+/* Near either end the label hangs inward instead of centring past the edge. */
+.envelope-setpoint-label-start {
+  transform: translateX(-4px);
+}
+
+.envelope-setpoint-label-end {
+  transform: translateX(calc(-100% + 4px));
+}
+
+.code-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1-5);
+  min-width: 0;
+}
+
+.code-block-topic {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+
+.code-block-pre {
+  margin: 0;
+  padding: var(--spacing-3-5) var(--spacing-4);
+  background: var(--muted);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--secondary-foreground);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

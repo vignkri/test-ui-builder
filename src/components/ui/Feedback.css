@@ -88,3 +88,48 @@
 .progress-muted .progress-indicator {
   background: var(--muted-foreground);
 }
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh var(--spacing-4) var(--spacing-4);
+  background: color-mix(in srgb, var(--foreground) 28%, transparent);
+}
+
+.dialog {
+  width: 520px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  padding: var(--spacing-6);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border-radius: var(--radius-2xl);
+  box-shadow: 0 16px 48px rgba(23, 36, 31, 0.18);
+}
+
+.dialog-title {
+  margin: 0;
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.dialog-description {
+  margin: -8px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted-foreground);
+}
+
+.dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-2);
+}

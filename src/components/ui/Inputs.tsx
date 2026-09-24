@@ -40,3 +40,28 @@ export function ToggleGroup<T extends string>({
     </div>
   );
 }
+
+/** shadcn/ui Toggle as a filter chip — label plus an optional count. */
+export function Toggle({
+  pressed,
+  onPressedChange,
+  count,
+  children,
+}: {
+  pressed: boolean;
+  onPressedChange: (pressed: boolean) => void;
+  count?: number;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      className={`toggle ${pressed ? "toggle-pressed" : ""}`}
+      onClick={() => onPressedChange(!pressed)}
+    >
+      <span className="toggle-label">{children}</span>
+      {count !== undefined && <span className="toggle-count">{count}</span>}
+    </button>
+  );
+}

@@ -164,9 +164,8 @@
   font-size: 11px;
   line-height: 16px;
   color: var(--muted-foreground);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* API field names are long camelCase; break rather than hide them. */
+  overflow-wrap: anywhere;
 }
 
 .metric-tile-reading {
@@ -189,4 +188,15 @@
   font-size: 12px;
   line-height: 16px;
   color: var(--muted-foreground);
+}
+
+@media (max-width: 900px) {
+  .kpi-card {
+    padding: var(--spacing-3) var(--spacing-4);
+  }
+
+  .kpi-card-value {
+    font-size: 24px;
+    line-height: 30px;
+  }
 }

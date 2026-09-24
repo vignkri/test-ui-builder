@@ -1,6 +1,6 @@
 .app-shell {
   display: flex;
-  height: 100vh;
+  min-height: 100vh;
   background: var(--background);
 }
 
@@ -9,45 +9,38 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-5);
-  padding: var(--spacing-6) var(--spacing-8);
-  overflow: hidden;
-}
-
-/* Not connected: keep the last known state readable but visibly greyed. */
-.app-offline .app-content,
-.app-offline .kpi-row {
-  opacity: 0.7;
-  filter: saturate(0.4);
+  gap: var(--spacing-6);
+  padding: var(--spacing-8) var(--spacing-8) var(--spacing-10);
 }
 
 .app-content {
-  flex: 1;
-  min-height: 0;
   display: flex;
-  gap: var(--spacing-5);
+  flex-direction: column;
+  gap: var(--spacing-6);
+  min-width: 0;
 }
 
-@media (max-width: 1200px) {
-  .app-main {
-    overflow-y: auto;
-  }
+/* Not connected: last known values stay readable but visibly greyed (08b). */
+.app-offline .app-content {
+  opacity: 0.6;
+  filter: saturate(0.35);
+}
 
-  .app-content {
-    flex-direction: column;
-    flex: none;
-  }
+.header-search {
+  width: 240px;
+}
+
+.page-header-actions a.button {
+  text-decoration: none;
 }
 
 @media (max-width: 900px) {
-  .app-shell {
-    flex-direction: column;
-    height: auto;
-    min-height: 100vh;
+  .app-main {
+    padding: var(--spacing-5) var(--spacing-4) calc(var(--spacing-10) + 56px);
+    gap: var(--spacing-4);
   }
 
-  .app-main {
-    padding: var(--spacing-4);
-    overflow: visible;
+  .app-content {
+    gap: var(--spacing-4);
   }
 }

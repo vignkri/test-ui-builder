@@ -1,211 +1,202 @@
-/* Payload shapes per https://connect.gridhub.ai — EV chargers use snake_case,
-   heat pumps use camelCase. Field names are kept verbatim from the spec. */
+/**
+ * Distributed Energy Resources API v2 — payload types with the spec's exact field names.
+ * Payloads are flat camelCase JSON; there is no nested `payload` wrapper on any channel.
+ * https://connect.gridhub.ai/distributed-resources/quickstart
+ */
+export const RESOURCE_TYPES = ["evCharger", "heatPump", "bess", "chp", "p2x", "pv", "misc"] as const;
+export type ResourceType = (typeof RESOURCE_TYPES)[number];
 
-import type { Zone } from "./topics";
+export const RESOURCE_STATES = ["Available", "Unavailable", "Activated", "Faulted"] as const;
+export type ResourceState = (typeof RESOURCE_STATES)[number];
 
-// ---------- EV chargers ----------
+export const SEVERITIES = ["INFO", "LOW", "HIGH", "CRITICAL"] as const;
+export type Severity = (typeof SEVERITIES)[number];
 
-export const EV_CAPABILITIES = ["Basic", "Standard", "Enhanced", "Full", "DynamicBinning"] as const;
-export type EvCapability = (typeof EV_CAPABILITIES)[number];
+export const EVENT_KINDS = ["Status", "Error"] as const;
+export type EventKind = (typeof EVENT_KINDS)[number];
 
-export const EV_STATUSES = [
-  "Available",
-  "Preparing",
-  "Charging",
-  "SuspendedEV",
-  "SuspendedEVSE",
-  "Reserved",
-  "Unavailable",
-  "Faulted",
-  "Offline",
-] as const;
-export type EvStatus = (typeof EV_STATUSES)[number];
+/** OCPP session states — EV chargers only, beside resourceState rather than inside it. */
+export const SESSION_STATES = ["Preparing", "Charging", "SuspendedEV", "SuspendedEVSE", "Reserved"] as const;
 
-export const EV_ACTIVATIONS = ["SetPowerLimit", "ClearPowerLimit"] as const;
-export type EvActivation = (typeof EV_ACTIVATIONS)[number];
-
-export const ACCEPTANCE_CODES = [
+export const ACCEPTANCES = [
   "Accepted",
-  "RejectedByEvse",
-  "EvseOffline",
-  "EvDisconnected",
-  "NoEvCharging",
-  "InvalidEvseId",
+  "Rejected",
+  "Offline",
+  "NotAvailable",
+  "InvalidResourceId",
   "InvalidMessageFormat",
   "InternalError",
   "Unauthorised",
 ] as const;
-export type Acceptance = (typeof ACCEPTANCE_CODES)[number];
+export type Acceptance = (typeof ACCEPTANCES)[number];
 
-export interface EvSchedule {
-  starts_at: string;
-  ends_at: string;
+export const MEASUREMENT_TYPES = [
+  "measuredPower",
+  "availablePowerUp",
+  "availablePowerDown",
+  "stateOfCharge",
+  "availableEnergyUp",
+  "availableEnergyDown",
+] as const;
+export type MeasurementType = (typeof MEASUREMENT_TYPES)[number];
+
+export type ControlGranularity =
+  | { mode: "Steps"; stepsKw: number[] }
+  | { mode: "Continuous"; minKw: number; maxKw: number };
+
+export interface MarketParty {
+  code: string;
+  encoding: "GS1";
 }
 
-export interface EvRegisterMessage {
-  timestamp: number;
-  event_id: string;
-  resource_id: string;
-  capability: EvCapability[];
-  current_type: "AC" | "DC";
-  subscription_status: "Subscribed" | "Unsubscribed";
-  schedule: EvSchedule | null;
-  market_relationships?: {
-    balance_responsible_party?: { code: string; encoding: "GS1" };
-  };
+export interface MarketRelationships {
+  balanceResponsibleParty?: MarketParty;
+  retailer?: MarketParty;
 }
 
-export interface EvPowerMessage {
-  event_id: string;
-  resource_id: string;
-  power_kw: number;
-  timestamp_evse: number | null;
-  timestamp_server: number;
+export interface ModuleGroup {
+  capacityKwp: number;
+  azimuth: number;
+  inclination: number;
 }
 
-export interface EvStatusMessage {
-  event_id: string;
-  resource_id: string;
-  status: EvStatus;
-  time_since_heartbeat: number | null;
-  timestamp_evse: number | null;
-  timestamp_server: number;
+/** Type-specific equipment properties. chp, p2x and misc declare none: `{}`. */
+export interface Configuration {
+  currentType?: "AC" | "DC";
+  compressorRatedPowerKw?: number;
+  backupHeaterRatedPowerKw?: number;
+  powerRatedKw?: number;
+  powerUsableKw?: number;
+  storageRatedKwh?: number;
+  storageUsableKwh?: number;
+  minSoc?: number;
+  maxSoc?: number;
+  chargeEfficiency?: number;
+  dischargeEfficiency?: number;
+  latitude?: number;
+  longitude?: number;
+  systemLoss?: number;
+  moduleGroups?: ModuleGroup[];
 }
 
-export interface EvActivationMessage {
-  event_id: string;
-  resource_id: string;
-  activation: EvActivation;
-  timestamp: number;
-  power_limit_kw?: number;
-  ends_at: number | null;
-}
-
-export interface EvAcknowledgementMessage {
-  event_id: string;
-  resource_id: string;
-  timestamp: number;
-  acceptance: Acceptance;
-  sent_at: number;
-  executed_at: number | null;
-}
-
-export interface EvUpdateMessage {
-  event_id: string;
-  resource_id: string;
-  data: Partial<Pick<EvRegisterMessage, "capability" | "subscription_status" | "schedule">>;
-}
-
-// ---------- Heat pumps ----------
-
-export const HP_STATUSES = ["Available", "ActivatedUp", "ActivatedDown", "Unavailable"] as const;
-export type HpStatus = (typeof HP_STATUSES)[number];
-
-export const HP_ACTIVATIONS = ["ActivationUp", "ActivationDown", "Release"] as const;
-export type HpActivation = (typeof HP_ACTIVATIONS)[number];
-
-export interface HpRegisterEntry {
+export interface RegisterEntry {
   resourceId: string;
+  resourceType: ResourceType;
   subscriptionStatus: "Subscribed" | "Unsubscribed";
-  priceZone: Zone;
-  configuration: {
-    compressorRatedPowerKW: number;
-    backupHeaterRatedPowerKW: number;
-  };
+  maxImportKw: number;
+  maxExportKw: number;
+  controlGranularity: ControlGranularity;
+  marketRelationships?: MarketRelationships;
+  configuration: Configuration;
 }
 
-export interface HpRegisterMessage {
-  eventId: string;
+export interface RegisterMessage {
+  messageId: string;
   timestamp: number;
-  payload: HpRegisterEntry[];
+  resources: RegisterEntry[];
 }
 
-export interface HpMeasurementMessage {
+/** Only the fields that change. `configuration` is replaced whole; `resourceType` never updates. */
+export interface UpdateMessage extends Partial<Omit<RegisterEntry, "resourceId" | "resourceType">> {
+  messageId: string;
+  timestamp: number;
+  resourceId: string;
+}
+
+export interface MeasurementMessage {
+  messageId: string;
+  resourceId: string;
+  measurementType: MeasurementType;
+  value: number;
+  unit: "kW" | "kWh" | "%";
   resourceTimestamp: number | null;
   serverTimestamp: number;
-  availableUpKw: number;
-  availableDownKw: number;
 }
 
-export interface HpEventMessage {
-  eventKind: "Status" | "Error";
-  status: HpStatus;
+export interface EventMessage {
+  messageId: string;
+  resourceId: string;
+  eventKind: EventKind;
+  resourceState: ResourceState;
+  severity: Severity;
+  sessionState?: string;
+  code?: string;
+  description?: string;
   resourceTimestamp: number | null;
   serverTimestamp: number;
 }
 
-export interface HpActivationMessage {
-  payload: {
-    activation: HpActivation;
-    timestamp: number;
-    endsAt: number | null;
-  };
+export type ActivationMessage =
+  | {
+      messageId: string;
+      resourceId: string;
+      activation: "Setpoint";
+      setpoint: number;
+      unit: "kW";
+      endsAt: number;
+      serverTimestamp: number;
+    }
+  | {
+      messageId: string;
+      resourceId: string;
+      activation: "Release";
+      serverTimestamp: number;
+    };
+
+export interface AcknowledgementMessage {
+  messageId: string;
+  resourceId: string;
+  activationId: string;
+  acceptance: Acceptance;
+  reason?: string;
+  executedAt: number | null;
 }
 
-export interface ZonalScheduleSlot {
-  time_start: number;
-  time_end: number;
-  is_turn_off_heating: boolean;
-}
-
-// ---------- type guards ----------
+// ---------- runtime guards ----------
 
 function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null;
+  return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-export function isEvRegister(v: unknown): v is EvRegisterMessage {
-  return isObject(v) && typeof v.resource_id === "string" && Array.isArray(v.capability);
+function oneOf<T extends string>(values: readonly T[], v: unknown): v is T {
+  return typeof v === "string" && (values as readonly string[]).includes(v);
 }
 
-export function isHpRegister(v: unknown): v is HpRegisterMessage {
-  return isObject(v) && Array.isArray(v.payload) && typeof v.eventId === "string";
-}
-
-export function isEvPower(v: unknown): v is EvPowerMessage {
-  return isObject(v) && typeof v.resource_id === "string" && typeof v.power_kw === "number";
-}
-
-export function isEvStatus(v: unknown): v is EvStatusMessage {
+export function isRegisterEntry(v: unknown): v is RegisterEntry {
   return (
     isObject(v) &&
-    typeof v.resource_id === "string" &&
-    (EV_STATUSES as readonly string[]).includes(String(v.status))
+    typeof v.resourceId === "string" &&
+    oneOf(RESOURCE_TYPES, v.resourceType) &&
+    typeof v.maxImportKw === "number" &&
+    typeof v.maxExportKw === "number" &&
+    isObject(v.controlGranularity)
   );
 }
 
-export function isEvActivation(v: unknown): v is EvActivationMessage {
+export function isRegister(v: unknown): v is RegisterMessage {
+  return isObject(v) && Array.isArray(v.resources);
+}
+
+export function isUpdate(v: unknown): v is UpdateMessage {
+  return isObject(v) && typeof v.resourceId === "string" && !("measurementType" in v) && !("eventKind" in v);
+}
+
+export function isMeasurement(v: unknown): v is MeasurementMessage {
   return (
-    isObject(v) &&
-    typeof v.resource_id === "string" &&
-    (EV_ACTIVATIONS as readonly string[]).includes(String(v.activation))
+    isObject(v) && typeof v.resourceId === "string" && oneOf(MEASUREMENT_TYPES, v.measurementType) && typeof v.value === "number"
   );
 }
 
-export function isEvAcknowledgement(v: unknown): v is EvAcknowledgementMessage {
-  return (
-    isObject(v) &&
-    typeof v.resource_id === "string" &&
-    (ACCEPTANCE_CODES as readonly string[]).includes(String(v.acceptance))
-  );
+export function isEvent(v: unknown): v is EventMessage {
+  return isObject(v) && typeof v.resourceId === "string" && oneOf(EVENT_KINDS, v.eventKind) && oneOf(RESOURCE_STATES, v.resourceState);
 }
 
-export function isEvUpdate(v: unknown): v is EvUpdateMessage {
-  return isObject(v) && typeof v.resource_id === "string" && isObject(v.data);
+export function isActivation(v: unknown): v is ActivationMessage {
+  if (!isObject(v) || typeof v.resourceId !== "string" || typeof v.messageId !== "string") return false;
+  if (v.activation === "Release") return true;
+  return v.activation === "Setpoint" && typeof v.setpoint === "number";
 }
 
-export function isHpMeasurement(v: unknown): v is HpMeasurementMessage {
-  return isObject(v) && typeof v.availableUpKw === "number" && typeof v.availableDownKw === "number";
-}
-
-export function isHpEvent(v: unknown): v is HpEventMessage {
-  return isObject(v) && (HP_STATUSES as readonly string[]).includes(String(v.status));
-}
-
-export function isHpActivation(v: unknown): v is HpActivationMessage {
-  return (
-    isObject(v) &&
-    isObject(v.payload) &&
-    (HP_ACTIVATIONS as readonly string[]).includes(String(v.payload.activation))
-  );
+export function isAcknowledgement(v: unknown): v is AcknowledgementMessage {
+  return isObject(v) && typeof v.resourceId === "string" && typeof v.activationId === "string" && oneOf(ACCEPTANCES, v.acceptance);
 }

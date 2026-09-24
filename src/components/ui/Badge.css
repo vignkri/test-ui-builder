@@ -163,3 +163,63 @@
   background: var(--type-heat-pump);
   color: var(--type-heat-pump-foreground);
 }
+
+/* DER severity */
+.badge-severity {
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  line-height: 16px;
+  padding: var(--spacing-0-5) var(--spacing-2-5);
+}
+
+.badge-severity-info {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.badge-severity-low {
+  background: var(--type-heat-pump);
+  color: var(--type-heat-pump-foreground);
+}
+
+.badge-severity-high {
+  background: var(--status-faulted-muted);
+  color: var(--status-faulted-foreground);
+}
+
+.badge-severity-critical {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+/* DER event kind */
+.badge-kind-status {
+  border-radius: var(--radius-sm);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.badge-kind-error {
+  border-radius: var(--radius-sm);
+  background: var(--status-faulted-muted);
+  color: var(--status-faulted-foreground);
+}
+
+.badge-version {
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  padding: var(--spacing-0-5) var(--spacing-2);
+}
+
+.badge-version-v2 {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.badge-version-v1 {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+}

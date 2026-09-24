@@ -1,11 +1,12 @@
 import type { ConnectionStatus, Resource } from "../types";
 import type { MqttConnection } from "./connection";
-import type { EvActivation, EvActivationMessage, HpActivation, HpActivationMessage } from "./messages";
+import type { ActivationMessage } from "./messages";
 import { FleetStore } from "./store";
 import { buildTopic } from "./topics";
 import { ulid } from "./ulid";
 
-const ACTIVATION_DURATION_MS = 3_600_000;
+/** How long a setpoint holds before the resource may revert on its own. The spec requires endsAt. */
+export const SETPOINT_HOLD_MS = 3_600_000;
 
 const env = import.meta.env;
 export const CUSTOMER: string = env.VITE_MQTT_CUSTOMER || "acme-flex";
@@ -50,23 +51,35 @@ export const connectionStatusStore = {
   },
 };
 
-export function sendEvActivation(r: Resource, activation: EvActivation, powerLimitKw?: number): boolean {
-  const now = Date.now();
-  const msg: EvActivationMessage = {
-    event_id: ulid(now),
-    resource_id: r.id,
-    activation,
-    timestamp: now,
-    ...(activation === "SetPowerLimit" ? { power_limit_kw: powerLimitKw } : {}),
-    ends_at: activation === "SetPowerLimit" ? now + ACTIVATION_DURATION_MS : null,
-  };
+export function retryConnection(): void {
+  connection?.reconnect();
+}
+
+function publish(r: Resource, msg: ActivationMessage): boolean {
   return connection?.publish(buildTopic(r.zone, r.customer, "activation", r.id), msg) ?? false;
 }
 
-export function sendHpActivation(r: Resource, activation: HpActivation): boolean {
+/** Setpoint: an absolute, signed target on the generator convention, held until endsAt or a release. */
+export function sendSetpoint(r: Resource, setpointKw: number, holdMs: number = SETPOINT_HOLD_MS): boolean {
   const now = Date.now();
-  const msg: HpActivationMessage = {
-    payload: { activation, timestamp: now, endsAt: activation === "Release" ? null : now + ACTIVATION_DURATION_MS },
-  };
-  return connection?.publish(buildTopic(r.zone, r.customer, "activation", r.id), msg) ?? false;
+  return publish(r, {
+    messageId: ulid(now),
+    resourceId: r.id,
+    activation: "Setpoint",
+    setpoint: setpointKw,
+    unit: "kW",
+    endsAt: now + holdMs,
+    serverTimestamp: now,
+  });
+}
+
+/** Release returns the resource to its own control logic. It is not a setpoint of 0. */
+export function sendRelease(r: Resource): boolean {
+  const now = Date.now();
+  return publish(r, { messageId: ulid(now), resourceId: r.id, activation: "Release", serverTimestamp: now });
+}
+
+/** The payload a Release would carry, for the confirmation dialog preview. */
+export function releasePreview(r: Resource, at: number): object {
+  return { resourceId: r.id, activation: "Release", serverTimestamp: at };
 }

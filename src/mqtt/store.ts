@@ -1,73 +1,59 @@
-import type { FeedEntry, Resource, ResourceType } from "../types";
-import { healthOf } from "./derive";
+import type { ActivationRecord, EventRecord, LegacyResource, Resource } from "../types";
 import {
-  isEvAcknowledgement,
-  isEvActivation,
-  isEvPower,
-  isEvRegister,
-  isEvStatus,
-  isEvUpdate,
-  isHpActivation,
-  isHpEvent,
-  isHpMeasurement,
-  isHpRegister,
-  type EvAcknowledgementMessage,
-  type EvActivationMessage,
-  type EvRegisterMessage,
-  type HpActivationMessage,
-  type HpRegisterEntry,
+  isAcknowledgement,
+  isActivation,
+  isEvent,
+  isMeasurement,
+  isRegister,
+  isRegisterEntry,
+  isUpdate,
+  type AcknowledgementMessage,
+  type ActivationMessage,
+  type EventMessage,
+  type MeasurementMessage,
+  type RegisterEntry,
+  type UpdateMessage,
 } from "./messages";
-import { parseTopic, type Channel, type ParsedTopic, type Zone } from "./topics";
+import { parseTopic, type Zone } from "./topics";
 
 export interface FleetSnapshot {
   resources: Resource[];
-  feed: FeedEntry[];
+  /** Newest first. */
+  activations: ActivationRecord[];
+  /** Newest first. */
+  events: EventRecord[];
+  legacy: LegacyResource[];
   messageCount: number;
   lastMessageAt: number | null;
 }
 
-const FEED_LIMIT = 60;
-const POWER_HISTORY_LIMIT = 20;
+const LOG_LIMIT = 500;
+const POWER_HISTORY_LIMIT = 30;
 const NOTIFY_COALESCE_MS = 50;
 
-function hashId(id: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) {
-    h ^= id.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function mapPositionFor(id: string): { x: number; y: number } {
-  const h = hashId(id);
-  return { x: 0.08 + ((h & 0xffff) / 0xffff) * 0.84, y: 0.08 + ((h >>> 16) / 0xffff) * 0.84 };
-}
-
-function blankResource(id: string, type: ResourceType, zone: Zone, customer: string, now: number): Resource {
+function blankResource(id: string, zone: Zone, customer: string, now: number): Resource {
   return {
     id,
-    type,
     zone,
     customer,
+    type: null,
     subscriptionStatus: "Subscribed",
-    capability: [],
-    currentType: null,
-    schedule: null,
-    brpCode: null,
-    compressorRatedPowerKW: null,
-    backupHeaterRatedPowerKW: null,
-    status: null,
-    powerKw: null,
+    maxImportKw: null,
+    maxExportKw: null,
+    controlGranularity: null,
+    marketRelationships: {},
+    configuration: {},
+    registeredAt: null,
+    updatedAt: null,
+    metrics: {},
     powerHistoryKw: [],
-    availableUpKw: null,
-    availableDownKw: null,
-    activation: null,
-    acknowledgement: null,
-    ackPending: false,
-    registeredAt: now,
+    state: null,
+    sessionState: null,
+    lastEvent: null,
+    fault: null,
+    command: null,
     lastMessageAt: now,
-    mapPosition: mapPositionFor(id),
+    lastSampleAt: null,
   };
 }
 
@@ -81,18 +67,34 @@ function decode(payload: Uint8Array | string | object): unknown {
   }
 }
 
+function payloadResourceId(v: unknown): string | null {
+  if (typeof v !== "object" || v === null) return null;
+  const o = v as Record<string, unknown>;
+  const id = o.resourceId ?? o.resource_id;
+  return typeof id === "string" ? id : null;
+}
+
 /**
- * Pure reducer over MQTT traffic. Feed it every message on `{zone}/{customer}/v1/#`
- * and it maintains the fleet the UI renders. Both the live broker connection and the
- * in-browser simulator go through `apply`, so the UI never sees a different data path.
+ * Pure reducer over MQTT traffic on `{zone}/{customer}/v2/#` (and v1, which is only noted).
+ * A resource appears the first time any message names it; registration fills in its envelope.
  */
 export class FleetStore {
   private resources = new Map<string, Resource>();
-  private feed: FeedEntry[] = [];
+  private activations: ActivationRecord[] = [];
+  private activationsById = new Map<string, ActivationRecord>();
+  private events: EventRecord[] = [];
+  private legacy = new Map<string, LegacyResource>();
   private messageCount = 0;
   private lastMessageAt: number | null = null;
   private listeners = new Set<() => void>();
-  private snapshot: FleetSnapshot = { resources: [], feed: [], messageCount: 0, lastMessageAt: null };
+  private snapshot: FleetSnapshot = {
+    resources: [],
+    activations: [],
+    events: [],
+    legacy: [],
+    messageCount: 0,
+    lastMessageAt: null,
+  };
   private notifyTimer: ReturnType<typeof setTimeout> | null = null;
 
   subscribe = (listener: () => void): (() => void) => {
@@ -107,180 +109,189 @@ export class FleetStore {
   }
 
   apply(topic: string, rawPayload: Uint8Array | string | object, receivedAt: number = Date.now()): void {
-    const parsed = parseTopic(topic);
-    if (!parsed) return;
+    const t = parseTopic(topic);
+    if (!t) return;
     const payload = decode(rawPayload);
     if (payload === null) return;
 
     this.messageCount++;
     this.lastMessageAt = receivedAt;
 
-    if (parsed.bulk) {
-      if (Array.isArray(payload)) {
-        for (const entry of payload) this.applyOne(parsed, entry, receivedAt);
-      } else {
-        this.applyOne(parsed, payload, receivedAt);
-      }
-    } else {
-      this.applyOne(parsed, payload, receivedAt);
+    if (t.version === "v1") {
+      const id = t.resourceId ?? payloadResourceId(payload);
+      if (id) this.legacy.set(id, { resourceId: id, zone: t.zone, channel: `v1/${t.channel.split("/")[0]}`, lastSeenAt: receivedAt });
+      this.scheduleNotify();
+      return;
+    }
+
+    const { zone, customer } = t;
+    switch (t.channel) {
+      case "register":
+        if (isRegister(payload)) {
+          for (const entry of payload.resources) {
+            if (isRegisterEntry(entry)) this.register(zone, customer, entry, payload.timestamp ?? receivedAt, receivedAt);
+          }
+        }
+        break;
+      case "update":
+        if (isUpdate(payload) && payload.resourceId === t.resourceId) this.update(zone, customer, payload, receivedAt);
+        break;
+      case "measurements":
+        if (isMeasurement(payload)) this.measure(zone, customer, payload, receivedAt);
+        break;
+      case "events":
+        if (isEvent(payload)) this.event(zone, customer, payload, receivedAt);
+        break;
+      case "activation":
+        if (isActivation(payload)) this.activate(zone, customer, payload, receivedAt);
+        break;
+      case "acknowledgement":
+        if (isAcknowledgement(payload)) this.acknowledge(zone, customer, payload, receivedAt);
+        break;
     }
     this.scheduleNotify();
   }
 
-  private applyOne(t: ParsedTopic, payload: unknown, now: number): void {
-    switch (t.channel) {
-      case "register":
-        if (isEvRegister(payload)) this.registerEv(t, payload, now);
-        else if (isHpRegister(payload)) {
-          for (const entry of payload.payload) this.registerHp(t, entry, now);
-        }
-        return;
-      case "power":
-        if (isEvPower(payload)) {
-          const r = this.touch(payload.resource_id, "ev-charger", t, now);
-          r.powerKw = payload.power_kw;
-          r.powerHistoryKw = [...r.powerHistoryKw.slice(-(POWER_HISTORY_LIMIT - 1)), payload.power_kw];
-          this.pushFeed(r, t.channel, `${payload.power_kw.toFixed(1)} kW`, now);
-        }
-        return;
-      case "status":
-        if (isEvStatus(payload)) {
-          const r = this.touch(payload.resource_id, "ev-charger", t, now);
-          r.status = payload.status;
-          this.pushFeed(r, t.channel, payload.status, now);
-        }
-        return;
-      case "activation":
-        if (isEvActivation(payload)) this.activateEv(t, payload, now);
-        else if (isHpActivation(payload) && t.resourceId) this.activateHp(t, t.resourceId, payload, now);
-        return;
-      case "acknowledgement":
-        if (isEvAcknowledgement(payload)) this.acknowledge(t, payload, now);
-        return;
-      case "update":
-        if (isEvUpdate(payload)) {
-          const r = this.touch(payload.resource_id, "ev-charger", t, now);
-          if (payload.data.capability) r.capability = payload.data.capability;
-          if (payload.data.subscription_status) r.subscriptionStatus = payload.data.subscription_status;
-          if (payload.data.schedule !== undefined) r.schedule = payload.data.schedule;
-          this.pushFeed(r, t.channel, Object.keys(payload.data).join(", "), now);
-        }
-        return;
-      case "measurement":
-        if (isHpMeasurement(payload) && t.resourceId) {
-          const r = this.touch(t.resourceId, "heat-pump", t, now);
-          r.availableUpKw = payload.availableUpKw;
-          r.availableDownKw = payload.availableDownKw;
-          this.pushFeed(
-            r,
-            t.channel,
-            `↑${payload.availableUpKw.toFixed(1)} / ↓${payload.availableDownKw.toFixed(1)} kW`,
-            now
-          );
-        }
-        return;
-      case "event":
-        if (isHpEvent(payload) && t.resourceId) {
-          const r = this.touch(t.resourceId, "heat-pump", t, now);
-          r.status = payload.status;
-          this.pushFeed(r, t.channel, `${payload.eventKind} ${payload.status}`, now);
-        }
-        return;
-      case "schedules":
-        return;
-    }
-  }
-
-  private touch(id: string, type: ResourceType, t: ParsedTopic, now: number): Resource {
+  private touch(id: string, zone: Zone, customer: string, now: number): Resource {
     let r = this.resources.get(id);
     if (!r) {
-      r = blankResource(id, type, t.zone, t.customer, now);
+      r = blankResource(id, zone, customer, now);
       this.resources.set(id, r);
     }
     r.lastMessageAt = now;
+    // A resource that now speaks v2 has migrated.
+    this.legacy.delete(id);
     return r;
   }
 
-  private registerEv(t: ParsedTopic, m: EvRegisterMessage, now: number): void {
-    const r = this.touch(m.resource_id, "ev-charger", t, now);
-    r.capability = m.capability;
-    r.currentType = m.current_type;
-    r.subscriptionStatus = m.subscription_status;
-    r.schedule = m.schedule;
-    r.brpCode = m.market_relationships?.balance_responsible_party?.code ?? null;
-    r.registeredAt = m.timestamp ?? now;
-    this.pushFeed(r, "register", `capability ${m.capability.join(", ")}`, now);
-  }
-
-  private registerHp(t: ParsedTopic, e: HpRegisterEntry, now: number): void {
-    const r = this.touch(e.resourceId, "heat-pump", t, now);
-    r.zone = e.priceZone;
+  private register(zone: Zone, customer: string, e: RegisterEntry, at: number, now: number): void {
+    const r = this.touch(e.resourceId, zone, customer, now);
+    r.type = e.resourceType;
     r.subscriptionStatus = e.subscriptionStatus;
-    r.compressorRatedPowerKW = e.configuration.compressorRatedPowerKW;
-    r.backupHeaterRatedPowerKW = e.configuration.backupHeaterRatedPowerKW;
-    this.pushFeed(r, "register", `compressor ${e.configuration.compressorRatedPowerKW} kW`, now);
+    r.maxImportKw = e.maxImportKw;
+    r.maxExportKw = e.maxExportKw;
+    r.controlGranularity = e.controlGranularity;
+    r.marketRelationships = e.marketRelationships ?? {};
+    r.configuration = e.configuration ?? {};
+    r.registeredAt = at;
   }
 
-  private activateEv(t: ParsedTopic, m: EvActivationMessage, now: number): void {
-    const r = this.touch(m.resource_id, "ev-charger", t, now);
-    r.activation =
-      m.activation === "ClearPowerLimit"
-        ? null
-        : {
-            kind: m.activation,
-            powerLimitKw: m.power_limit_kw ?? null,
-            endsAt: m.ends_at,
-            sentAt: m.timestamp,
-            eventId: m.event_id,
-          };
-    r.ackPending = true;
-    const label =
-      m.activation === "SetPowerLimit" ? `SetPowerLimit ${(m.power_limit_kw ?? 0).toFixed(1)} kW` : m.activation;
-    this.pushFeed(r, "activation", label, now);
+  private update(zone: Zone, customer: string, m: UpdateMessage, now: number): void {
+    const r = this.touch(m.resourceId, zone, customer, now);
+    if (m.subscriptionStatus) r.subscriptionStatus = m.subscriptionStatus;
+    if (typeof m.maxImportKw === "number") r.maxImportKw = m.maxImportKw;
+    if (typeof m.maxExportKw === "number") r.maxExportKw = m.maxExportKw;
+    if (m.controlGranularity) r.controlGranularity = m.controlGranularity;
+    if (m.marketRelationships) r.marketRelationships = m.marketRelationships;
+    // configuration is replaced as a whole, never merged.
+    if (m.configuration) r.configuration = m.configuration;
+    r.updatedAt = m.timestamp ?? now;
   }
 
-  private activateHp(t: ParsedTopic, id: string, m: HpActivationMessage, now: number): void {
-    const r = this.touch(id, "heat-pump", t, now);
-    const { activation, timestamp, endsAt } = m.payload;
-    r.activation =
-      activation === "Release"
-        ? null
-        : { kind: activation, powerLimitKw: null, endsAt, sentAt: timestamp, eventId: null };
-    this.pushFeed(r, "activation", activation, now);
-  }
-
-  private acknowledge(t: ParsedTopic, m: EvAcknowledgementMessage, now: number): void {
-    const r = this.touch(m.resource_id, "ev-charger", t, now);
-    r.ackPending = false;
-    r.acknowledgement = {
-      acceptance: m.acceptance,
-      roundTripMs: m.executed_at !== null ? m.executed_at - m.sent_at : null,
-      at: m.timestamp,
+  private measure(zone: Zone, customer: string, m: MeasurementMessage, now: number): void {
+    const r = this.touch(m.resourceId, zone, customer, now);
+    r.metrics = {
+      ...r.metrics,
+      [m.measurementType]: {
+        value: m.value,
+        resourceTimestamp: m.resourceTimestamp,
+        serverTimestamp: m.serverTimestamp,
+        receivedAt: now,
+      },
     };
-    const rt = r.acknowledgement.roundTripMs;
-    this.pushFeed(r, "acknowledgement", rt === null ? m.acceptance : `${m.acceptance} · ${rt} ms`, now);
+    r.lastSampleAt = now;
+    if (m.measurementType === "measuredPower") {
+      r.powerHistoryKw = [...r.powerHistoryKw.slice(-(POWER_HISTORY_LIMIT - 1)), m.value];
+      const c = r.command;
+      if (c && c.command === "Setpoint" && c.appliedKw === null && m.serverTimestamp >= c.serverTimestamp) {
+        c.appliedKw = m.value;
+      }
+    }
   }
 
-  private pushFeed(r: Resource, channel: Channel, summary: string, now: number): void {
-    this.feed.unshift({
-      id: `${r.id}-${now}-${this.messageCount}`,
-      resourceId: r.id,
-      resourceType: r.type,
-      channel,
-      summary,
-      at: now,
-      health: healthOf(r, now),
-    });
-    if (this.feed.length > FEED_LIMIT) this.feed.length = FEED_LIMIT;
+  private event(zone: Zone, customer: string, m: EventMessage, now: number): void {
+    const r = this.touch(m.resourceId, zone, customer, now);
+    const record: EventRecord = {
+      messageId: m.messageId,
+      resourceId: m.resourceId,
+      zone,
+      eventKind: m.eventKind,
+      previousState: r.state,
+      resourceState: m.resourceState,
+      severity: m.severity,
+      sessionState: m.sessionState ?? null,
+      code: m.code ?? null,
+      description: m.description ?? null,
+      resourceTimestamp: m.resourceTimestamp,
+      serverTimestamp: m.serverTimestamp,
+      receivedAt: now,
+      lastWill: m.code === "ConnectionLost" && m.resourceTimestamp === null,
+      raw: m,
+    };
+    r.state = m.resourceState;
+    if (m.sessionState !== undefined) r.sessionState = m.sessionState;
+    r.lastEvent = record;
+    if (m.eventKind === "Error") r.fault = record;
+    else if (m.resourceState !== "Faulted") r.fault = null;
+    this.events.unshift(record);
+    if (this.events.length > LOG_LIMIT) this.events.length = LOG_LIMIT;
+  }
+
+  private activate(zone: Zone, customer: string, m: ActivationMessage, now: number): void {
+    // QoS 1 can redeliver the same command after a reconnect.
+    if (this.activationsById.has(m.messageId)) return;
+    const r = this.touch(m.resourceId, zone, customer, now);
+    const record: ActivationRecord = {
+      messageId: m.messageId,
+      resourceId: m.resourceId,
+      zone,
+      command: m.activation,
+      setpointKw: m.activation === "Setpoint" ? m.setpoint : null,
+      endsAt: m.activation === "Setpoint" ? m.endsAt : null,
+      serverTimestamp: m.serverTimestamp,
+      receivedAt: now,
+      appliedKw: null,
+      ack: null,
+      raw: m,
+    };
+    if (!r.command || record.serverTimestamp >= r.command.serverTimestamp) r.command = record;
+    this.activationsById.set(m.messageId, record);
+    this.activations.unshift(record);
+    if (this.activations.length > LOG_LIMIT) {
+      const dropped = this.activations.pop();
+      if (dropped) this.activationsById.delete(dropped.messageId);
+    }
+  }
+
+  private acknowledge(zone: Zone, customer: string, m: AcknowledgementMessage, now: number): void {
+    this.touch(m.resourceId, zone, customer, now);
+    const a = this.activationsById.get(m.activationId);
+    if (!a) return;
+    a.ack = {
+      messageId: m.messageId,
+      acceptance: m.acceptance,
+      reason: m.reason ?? null,
+      executedAt: m.executedAt,
+      latencyMs: m.executedAt === null ? null : m.executedAt - a.serverTimestamp,
+      receivedAt: now,
+      raw: m,
+    };
   }
 
   private scheduleNotify(): void {
     if (this.notifyTimer) return;
     this.notifyTimer = setTimeout(() => {
       this.notifyTimer = null;
+      // Records are mutated in place (an ack joins its activation), so copy them for React.
+      const activationCopies = new Map(this.activations.map((a) => [a.messageId, { ...a }]));
       this.snapshot = {
-        resources: [...this.resources.values()].map((r) => ({ ...r })).sort((a, b) => a.id.localeCompare(b.id)),
-        feed: [...this.feed],
+        resources: [...this.resources.values()]
+          .map((r) => ({ ...r, command: r.command ? (activationCopies.get(r.command.messageId) ?? { ...r.command }) : null }))
+          .sort((a, b) => a.id.localeCompare(b.id)),
+        // Newest first by the platform's own clock; QoS 1 redelivery can reorder arrival.
+        activations: [...activationCopies.values()].sort((a, b) => b.serverTimestamp - a.serverTimestamp),
+        events: [...this.events].sort((a, b) => b.serverTimestamp - a.serverTimestamp),
+        legacy: [...this.legacy.values()].sort((a, b) => a.resourceId.localeCompare(b.resourceId)),
         messageCount: this.messageCount,
         lastMessageAt: this.lastMessageAt,
       };

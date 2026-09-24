@@ -1,0 +1,167 @@
+.overview-bounds {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-5);
+}
+
+.overview-legend {
+  gap: var(--spacing-5);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted-foreground);
+}
+
+.flex-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.flex-row {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) 110px;
+  align-items: center;
+  gap: var(--spacing-4);
+}
+
+.flex-row p {
+  margin: 0;
+}
+
+.flex-row-label {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.flex-row-code,
+.flex-row-values {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+  white-space: pre;
+}
+
+.flex-bar {
+  display: flex;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  overflow: hidden;
+}
+
+.flex-bar-half {
+  flex: 1;
+  display: flex;
+}
+
+.flex-bar-down {
+  justify-content: flex-end;
+}
+
+.flex-bar-down div {
+  background: var(--flow-import);
+  border-radius: var(--radius-full) 0 0 var(--radius-full);
+}
+
+.flex-bar-up div {
+  background: var(--flow-export);
+  border-radius: 0 var(--radius-full) var(--radius-full) 0;
+}
+
+.flex-bar-zero {
+  width: 1.5px;
+  background: var(--foreground);
+}
+
+.bounds-table td {
+  border-top: none !important;
+  padding-top: var(--spacing-2) !important;
+  padding-bottom: var(--spacing-2) !important;
+}
+
+.bounds-table thead th {
+  border-radius: 0;
+}
+
+.bounds-table thead th:first-child {
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.bounds-table thead th:last-child {
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.bounds-market {
+  font-family: var(--font-mono);
+  color: var(--secondary-foreground);
+}
+
+.health-bar {
+  display: flex;
+  height: 12px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--muted);
+}
+
+.health-bar-available {
+  background: var(--status-available);
+}
+
+.health-bar-activated {
+  background: var(--status-activated);
+}
+
+.health-bar-unavailable {
+  background: var(--status-unavailable);
+}
+
+.health-bar-faulted {
+  background: var(--status-faulted);
+}
+
+.health-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-right: var(--spacing-3);
+  font-size: 13px;
+}
+
+.list-row-button {
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.list-row-button:hover {
+  background: color-mix(in srgb, var(--card) 50%, transparent);
+}
+
+.list-row-title {
+  display: block;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+
+.list-row-detail {
+  display: block;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 900px) {
+  .flex-row {
+    grid-template-columns: 90px minmax(0, 1fr);
+  }
+
+  .flex-row-values {
+    grid-column: 2;
+  }
+}

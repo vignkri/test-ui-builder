@@ -1,7 +1,7 @@
 import mqtt, { type MqttClient } from "mqtt";
 import type { ConnectionStatus } from "../types";
 import type { FleetStore } from "./store";
-import { ZONES, wildcardTopic } from "./topics";
+import { ZONES, wildcardTopics } from "./topics";
 
 export interface MqttConfig {
   /** Browsers can only speak MQTT over WebSocket, e.g. wss://aggregator.gridhub.dev:8884/mqtt */
@@ -15,7 +15,7 @@ export interface MqttConfig {
 }
 
 /**
- * Subscribes to `{zone}/{customer}/v1/#` for every price zone and feeds each message
+ * Subscribes to `{zone}/{customer}/v2/#` (and v1, noted for migration) for every price zone and feeds each message
  * to the store. Publishing goes to the broker, whose echo on our own subscription is
  * what updates the store — the UI never writes state it did not receive.
  */
@@ -39,7 +39,7 @@ export class MqttConnection {
     const client = mqtt.connect(this.config.url, {
       username: this.config.username,
       password: this.config.password,
-      clientId: this.config.clientId ?? `weavemancer-ui-${Math.random().toString(36).slice(2, 10)}`,
+      clientId: this.config.clientId ?? `der-console-${Math.random().toString(36).slice(2, 10)}`,
       clean: true,
       reconnectPeriod: 2000,
       connectTimeout: 8000,
@@ -49,7 +49,7 @@ export class MqttConnection {
 
     client.on("connect", () => {
       this.everConnected = true;
-      const topics = ZONES.map((z) => wildcardTopic(z, this.config.customer));
+      const topics = ZONES.flatMap((z) => wildcardTopics(z, this.config.customer));
       client.subscribe(topics, { qos: 1 }, (err) => {
         this.setStatus(
           err ? { kind: "disconnected", detail: `subscribe failed: ${err.message}` } : { kind: "live", detail: host }
@@ -58,15 +58,21 @@ export class MqttConnection {
     });
     client.on("message", (topic, payload) => this.store.apply(topic, payload));
     client.on("close", () => {
-      this.setStatus(
-        this.everConnected
-          ? { kind: "reconnecting", detail: host }
-          : { kind: "disconnected", detail: `no connection to ${host}` }
-      );
+      if (this.everConnected) {
+        const since = this.status.kind === "reconnecting" ? this.status.since : Date.now();
+        this.setStatus({ kind: "reconnecting", detail: host, since });
+      } else {
+        this.setStatus({ kind: "disconnected", detail: `no connection to ${host}` });
+      }
     });
     client.on("error", (err) => {
       if (!this.everConnected) this.setStatus({ kind: "disconnected", detail: err.message });
     });
+  }
+
+  /** "Retry now": skip the remaining back-off and reconnect immediately. */
+  reconnect(): void {
+    this.client?.reconnect();
   }
 
   stop(): void {

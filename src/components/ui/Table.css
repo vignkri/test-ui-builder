@@ -1,0 +1,157 @@
+/* shadcn/ui Table — TableHead on a muted band, TableRow default | selected, TableCell kinds. */
+.table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--spacing-2-5) var(--spacing-3);
+  text-align: left;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.66px;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  white-space: nowrap;
+}
+
+.table th:first-child,
+.table td:first-child {
+  padding-left: var(--spacing-5);
+}
+
+.table th:last-child,
+.table td:last-child {
+  padding-right: var(--spacing-5);
+}
+
+.table tbody td {
+  padding: var(--spacing-3);
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.table tbody tr:first-child td {
+  border-top: none;
+}
+
+.table tbody td p {
+  margin: 0;
+}
+
+.table-row-interactive {
+  cursor: pointer;
+}
+
+.table-row-interactive:hover {
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
+.table-row-interactive:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.table tbody tr.table-row-selected,
+.table tbody tr.table-row-selected:hover {
+  background: var(--secondary);
+}
+
+.table tbody tr.table-row-selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--ring);
+}
+
+.table-row-dimmed {
+  opacity: 0.55;
+}
+
+/* TableCell kinds */
+.cell-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+.cell-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.cell-primary {
+  font-weight: 500;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-secondary {
+  margin-top: var(--spacing-1) !important;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+}
+
+.cell-faulted {
+  color: var(--status-faulted-foreground);
+}
+
+.cell-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-1);
+}
+
+.cell-empty {
+  text-align: center;
+  padding: var(--spacing-10) !important;
+  color: var(--muted-foreground);
+}
+
+.table-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-4);
+  padding: var(--spacing-3) var(--spacing-5);
+  background: var(--muted);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 6px;
+  margin-right: var(--spacing-1-5);
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+.legend-import {
+  background: var(--flow-import);
+}
+
+.legend-export {
+  background: var(--flow-export);
+}

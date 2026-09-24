@@ -1,0 +1,202 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
+  min-width: 0;
+}
+
+.card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--spacing-3);
+  padding: var(--spacing-5) var(--spacing-6) var(--spacing-4);
+}
+
+.card-titles {
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1-5);
+}
+
+.card-title {
+  margin: 0;
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.card-description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted-foreground);
+}
+
+.card-action {
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+/* KpiCard */
+.kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1-5);
+  padding: var(--spacing-4) var(--spacing-5);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  min-width: 0;
+}
+
+.kpi-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.kpi-card-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--chart-2);
+  flex-shrink: 0;
+}
+
+.kpi-card-label {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.kpi-card-value {
+  margin: 0;
+  font-size: 30px;
+  line-height: 36px;
+  font-weight: 700;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-card-caption {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+}
+
+.kpi-card-available .kpi-card-indicator {
+  background: var(--status-available);
+}
+
+.kpi-card-available .kpi-card-value {
+  color: var(--status-available-foreground);
+}
+
+.kpi-card-activated .kpi-card-indicator {
+  background: var(--status-activated);
+}
+
+.kpi-card-activated .kpi-card-value {
+  color: var(--status-activated-foreground);
+}
+
+.kpi-card-unavailable .kpi-card-indicator {
+  background: var(--status-unavailable);
+}
+
+.kpi-card-unavailable .kpi-card-value {
+  color: var(--status-unavailable-foreground);
+}
+
+.kpi-card-faulted .kpi-card-indicator {
+  background: var(--status-faulted);
+}
+
+.kpi-card-faulted .kpi-card-value {
+  color: var(--status-faulted-foreground);
+}
+
+.kpi-card-highlight {
+  background: var(--type-heat-pump);
+  border-color: transparent;
+}
+
+.kpi-card-highlight .kpi-card-indicator {
+  background: var(--chart-3);
+}
+
+.kpi-card-highlight .kpi-card-value {
+  color: var(--type-heat-pump-foreground);
+}
+
+/* MetricTile */
+.metric-tile {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-3) var(--spacing-3-5);
+  border-radius: var(--radius-lg);
+  background: var(--background);
+}
+
+.metric-tile-stale {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.metric-tile-name {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+  /* API field names are long camelCase; break rather than hide them. */
+  overflow-wrap: anywhere;
+}
+
+.metric-tile-reading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-1);
+  min-width: 0;
+}
+
+.metric-tile-value {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-tile-unit {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 900px) {
+  .kpi-card {
+    padding: var(--spacing-3) var(--spacing-4);
+  }
+
+  .kpi-card-value {
+    font-size: 24px;
+    line-height: 30px;
+  }
+}

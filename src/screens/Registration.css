@@ -1,0 +1,266 @@
+.registry {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.registry-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-5);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.registry-row:hover {
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
+.registry-row-on,
+.registry-row-on:hover {
+  background: var(--secondary);
+}
+
+.registry-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1-5);
+  min-width: 0;
+}
+
+.registry-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.registry-empty {
+  padding: var(--spacing-4) var(--spacing-5);
+}
+
+.registry-legacy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding: var(--spacing-4) var(--spacing-5) var(--spacing-5);
+  background: var(--muted);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+
+.registry-legacy-title {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.registry-legacy-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+.declaration-title {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 500;
+}
+
+.declaration {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-6);
+  padding: 0 var(--spacing-6) var(--spacing-6);
+}
+
+.declaration-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  min-width: 0;
+}
+
+.declaration-col .detail-overline:not(:first-child) {
+  margin-top: var(--spacing-2);
+}
+
+.pv-layout {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--spacing-4);
+}
+
+.pv-groups p {
+  margin: 0 0 var(--spacing-2);
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+}
+
+.pv-group-0 {
+  color: var(--accent-foreground);
+}
+
+.pv-group-1 {
+  color: var(--secondary-foreground);
+}
+
+.compass {
+  width: 150px;
+  height: 150px;
+}
+
+.compass-face {
+  fill: var(--muted);
+  stroke: var(--border);
+}
+
+.compass-label {
+  font-size: 10px;
+  text-anchor: middle;
+  fill: var(--muted-foreground);
+  font-weight: 600;
+}
+
+.compass-arm {
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.compass-arm-0 {
+  stroke: var(--flow-export);
+}
+
+.compass-arm-1 {
+  stroke: var(--flow-import);
+}
+
+.compass-hub {
+  fill: var(--foreground);
+}
+
+.hazards {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.hazard {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--spacing-3);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.hazard-n {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+.gran-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) 150px;
+  align-items: center;
+  gap: var(--spacing-4);
+}
+
+.gran-row p {
+  margin: 0;
+}
+
+.gran-track {
+  position: relative;
+  height: 14px;
+}
+
+.gran-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  height: 1.5px;
+  background: var(--border);
+}
+
+.gran-band {
+  position: absolute;
+  top: 3px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
+
+.gran-band-import {
+  background: var(--flow-import);
+}
+
+.gran-band-export {
+  background: var(--flow-export);
+}
+
+.gran-band-both {
+  background: var(--chart-3);
+}
+
+.gran-dot {
+  position: absolute;
+  top: 3px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: var(--radius-full);
+  background: var(--chart-5);
+}
+
+.gran-dot-zero {
+  background: var(--foreground);
+}
+
+.gran-text {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 1100px) {
+  .declaration {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .gran-row {
+    grid-template-columns: 90px minmax(0, 1fr);
+  }
+
+  .gran-text {
+    grid-column: 2;
+  }
+
+  .pv-layout {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+}

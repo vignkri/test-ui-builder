@@ -1,0 +1,225 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1-5);
+  padding: var(--spacing-0-5) var(--spacing-2-5);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.badge-pill {
+  border-radius: var(--radius-full);
+}
+
+.badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* shadcn variants */
+.badge-default {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.badge-secondary {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.badge-destructive {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+.badge-outline {
+  border: 1px solid var(--border);
+  color: var(--foreground);
+}
+
+/* DER status */
+.badge-status-available {
+  background: var(--status-available-muted);
+  color: var(--status-available-foreground);
+}
+
+.badge-status-available .badge-dot {
+  background: var(--status-available);
+}
+
+.badge-status-activated {
+  background: var(--status-activated-muted);
+  color: var(--status-activated-foreground);
+}
+
+.badge-status-activated .badge-dot {
+  background: var(--status-activated);
+}
+
+.badge-status-unavailable {
+  background: var(--status-unavailable-muted);
+  color: var(--status-unavailable-foreground);
+}
+
+.badge-status-unavailable .badge-dot {
+  background: var(--status-unavailable);
+}
+
+.badge-status-faulted {
+  background: var(--status-faulted-muted);
+  color: var(--status-faulted-foreground);
+}
+
+.badge-status-faulted .badge-dot {
+  background: var(--status-faulted);
+}
+
+/* DER type */
+.badge-type {
+  border-radius: var(--radius-sm);
+}
+
+.badge-code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.badge-type-evCharger {
+  background: var(--type-ev-charger);
+  color: var(--type-ev-charger-foreground);
+}
+
+.badge-type-heatPump {
+  background: var(--type-heat-pump);
+  color: var(--type-heat-pump-foreground);
+}
+
+.badge-type-bess {
+  background: var(--type-bess);
+  color: var(--type-bess-foreground);
+}
+
+.badge-type-chp {
+  background: var(--type-chp);
+  color: var(--type-chp-foreground);
+}
+
+.badge-type-p2x {
+  background: var(--type-p2x);
+  color: var(--type-p2x-foreground);
+}
+
+.badge-type-pv {
+  background: var(--type-pv);
+  color: var(--type-pv-foreground);
+}
+
+.badge-type-misc {
+  background: var(--type-misc);
+  color: var(--type-misc-foreground);
+  border: 1px solid var(--border);
+}
+
+/* DER freshness */
+.badge-freshness-live {
+  background: var(--status-available-muted);
+  color: var(--status-available-foreground);
+}
+
+.badge-freshness-live .badge-dot {
+  background: var(--status-available);
+}
+
+.badge-freshness-stale {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  border: 1px solid var(--muted-foreground);
+}
+
+.badge-freshness-lastKnown {
+  background: var(--background);
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+}
+
+/* DER command */
+.badge-command-setpoint {
+  border-radius: var(--radius-sm);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.badge-command-release {
+  border-radius: var(--radius-sm);
+  background: var(--type-heat-pump);
+  color: var(--type-heat-pump-foreground);
+}
+
+/* DER severity */
+.badge-severity {
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  line-height: 16px;
+  padding: var(--spacing-0-5) var(--spacing-2-5);
+}
+
+.badge-severity-info {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.badge-severity-low {
+  background: var(--type-heat-pump);
+  color: var(--type-heat-pump-foreground);
+}
+
+.badge-severity-high {
+  background: var(--status-faulted-muted);
+  color: var(--status-faulted-foreground);
+}
+
+.badge-severity-critical {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+/* DER event kind */
+.badge-kind-status {
+  border-radius: var(--radius-sm);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.badge-kind-error {
+  border-radius: var(--radius-sm);
+  background: var(--status-faulted-muted);
+  color: var(--status-faulted-foreground);
+}
+
+.badge-version {
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  padding: var(--spacing-0-5) var(--spacing-2);
+}
+
+.badge-version-v2 {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.badge-version-v1 {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+}

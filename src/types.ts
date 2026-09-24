@@ -1,78 +1,122 @@
 import type {
   Acceptance,
-  EvActivation,
-  EvCapability,
-  EvSchedule,
-  EvStatus,
-  HpActivation,
-  HpStatus,
+  ActivationMessage,
+  AcknowledgementMessage,
+  Configuration,
+  ControlGranularity,
+  EventKind,
+  EventMessage,
+  MarketRelationships,
+  MeasurementType,
+  ResourceState,
+  ResourceType,
+  Severity,
 } from "./mqtt/messages";
-import type { Channel, Zone } from "./mqtt/topics";
+import type { Zone } from "./mqtt/topics";
 
-export type ResourceType = "ev-charger" | "heat-pump";
+export type { ResourceType, ResourceState };
 
-/** Coarse health bucket derived from live state; drives map/feed colours and the Faults view. */
-export type Health = "ok" | "needs-attention" | "fault" | "offline";
+/** The four DER resource states in lower case — the tone every badge, dot and bar resolves to. */
+export type StatusTone = "available" | "activated" | "unavailable" | "faulted";
 
-export interface ActiveActivation {
-  kind: EvActivation | HpActivation;
-  powerLimitKw: number | null;
-  endsAt: number | null;
-  sentAt: number;
-  eventId: string | null;
+/** Console-side data freshness — not an API field. */
+export type Freshness = "live" | "stale" | "lastKnown";
+
+export interface MetricSample {
+  value: number;
+  resourceTimestamp: number | null;
+  serverTimestamp: number;
+  receivedAt: number;
 }
 
-export interface Acknowledgement {
+export interface AckRecord {
+  messageId: string;
   acceptance: Acceptance;
-  roundTripMs: number | null;
-  at: number;
+  reason: string | null;
+  executedAt: number | null;
+  /** executedAt − the activation's serverTimestamp. */
+  latencyMs: number | null;
+  receivedAt: number;
+  raw: AcknowledgementMessage;
+}
+
+/** One command on v2/activation, joined to its acknowledgement by activationId. */
+export interface ActivationRecord {
+  messageId: string;
+  resourceId: string;
+  zone: Zone;
+  command: "Setpoint" | "Release";
+  setpointKw: number | null;
+  endsAt: number | null;
+  serverTimestamp: number;
+  receivedAt: number;
+  /** First measuredPower after the command — what the resource achieved. */
+  appliedKw: number | null;
+  ack: AckRecord | null;
+  raw: ActivationMessage;
+}
+
+export interface EventRecord {
+  messageId: string;
+  resourceId: string;
+  zone: Zone;
+  eventKind: EventKind;
+  previousState: ResourceState | null;
+  resourceState: ResourceState;
+  severity: Severity;
+  sessionState: string | null;
+  code: string | null;
+  description: string | null;
+  resourceTimestamp: number | null;
+  serverTimestamp: number;
+  receivedAt: number;
+  /** The broker published the resource's Last Will: ConnectionLost with a null resourceTimestamp. */
+  lastWill: boolean;
+  raw: EventMessage;
 }
 
 export interface Resource {
   id: string;
-  type: ResourceType;
   zone: Zone;
   customer: string;
-
+  /** Null until v2/register names it — a resource can speak before a late-joining console sees its registration. */
+  type: ResourceType | null;
   subscriptionStatus: "Subscribed" | "Unsubscribed";
-  capability: EvCapability[];
-  currentType: "AC" | "DC" | null;
-  schedule: EvSchedule | null;
-  brpCode: string | null;
-  compressorRatedPowerKW: number | null;
-  backupHeaterRatedPowerKW: number | null;
+  maxImportKw: number | null;
+  maxExportKw: number | null;
+  controlGranularity: ControlGranularity | null;
+  marketRelationships: MarketRelationships;
+  configuration: Configuration;
+  registeredAt: number | null;
+  updatedAt: number | null;
 
-  status: EvStatus | HpStatus | null;
-  powerKw: number | null;
+  metrics: Partial<Record<MeasurementType, MetricSample>>;
   powerHistoryKw: number[];
-  availableUpKw: number | null;
-  availableDownKw: number | null;
 
-  activation: ActiveActivation | null;
-  acknowledgement: Acknowledgement | null;
-  /** EV only: an activation was delivered and no acknowledgement has followed it yet. */
-  ackPending: boolean;
+  state: ResourceState | null;
+  sessionState: string | null;
+  /** Latest event, and the open fault (last Error event while the state is Faulted). */
+  lastEvent: EventRecord | null;
+  fault: EventRecord | null;
 
-  registeredAt: number;
+  command: ActivationRecord | null;
+
   lastMessageAt: number;
-  /** Normalised 0..1 map coordinates. The spec carries no geo data, so this is a stable hash of the id. */
-  mapPosition: { x: number; y: number };
+  lastSampleAt: number | null;
 }
 
-export interface FeedEntry {
-  id: string;
+/** A resource still publishing on v1 topics. */
+export interface LegacyResource {
   resourceId: string;
-  resourceType: ResourceType;
-  channel: Channel;
-  summary: string;
-  at: number;
-  health: Health;
+  zone: Zone;
+  channel: string;
+  lastSeenAt: number;
 }
 
 export type ConnectionStatus =
   | { kind: "connecting"; detail: string }
   | { kind: "live"; detail: string }
   /** Was live, lost the socket; mqtt.js is retrying. */
-  | { kind: "reconnecting"; detail: string }
+  | { kind: "reconnecting"; detail: string; since: number }
   /** Never reached the broker (unreachable or not configured). */
   | { kind: "disconnected"; detail: string };
